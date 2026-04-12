@@ -1,4 +1,5 @@
 import numpy as np
+import math
 from collections import defaultdict
 from utils import F_not_i
 
@@ -38,9 +39,9 @@ class Shapley:
                     C_with_i.sort()
 
                     # Rolling sum, following formula
-                    shapley_values[tuple(state)][feature].append(np.math.factorial(C_card) * np.math.factorial(self.F_card - C_card - 1) * (C_values[tuple(C_with_i)] - C_values[tuple(C)]))
+                    shapley_values[tuple(state)][feature].append(math.factorial(C_card) * math.factorial(self.F_card - C_card - 1) * (C_values[tuple(C_with_i)] - C_values[tuple(C)]))
 
                 # Final weighting and return
-                shapley_values[tuple(state)][feature] = np.sum(shapley_values[tuple(state)][feature], axis=0) / np.math.factorial(self.F_card)
+                shapley_values[tuple(state)][feature] = np.sum(shapley_values[tuple(state)][feature], axis=0) / math.factorial(self.F_card)
 
         return dict(shapley_values)

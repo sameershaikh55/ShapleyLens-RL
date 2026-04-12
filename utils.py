@@ -130,7 +130,7 @@ def value_iteration(env, gamma):
     """
 
     # Get transition matrix from env
-    P = env.P
+    P = env.unwrapped.P
     num_states = len(P)
     V = np.zeros(num_states)
 

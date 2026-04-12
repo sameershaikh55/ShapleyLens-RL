@@ -32,7 +32,7 @@ class Grid:
         self.start = np.append(self.not_blocks % H, self.not_blocks // H).reshape(2, len(self.not_blocks)).T
 
         # Transitions of grid world, for speedy look up.
-        self.trans = self.trans = defaultdict(lambda: [[] for _ in range(4)])
+        self.trans = defaultdict(lambda: [[] for _ in range(4)])
 
         self.action_dict = {0: [0, 1],
                             1: [1, 0],
@@ -55,6 +55,8 @@ class Grid:
 
             # Update transition vector
             self.trans[tuple(state)][a] = np.append(new_state, reward_done) 
+        
+        self.trans = dict(self.trans)
 
     def reset(self, start_state=None):
         """
