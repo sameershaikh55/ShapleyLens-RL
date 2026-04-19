@@ -80,9 +80,12 @@ class Characteristics:
         self.pi_Cs = pi_Cs
 
         # Function for calculating partial policy for global SVERL
-        self.get_policy = lambda state, C : copy.deepcopy(self.pi_Cs[tuple(C)]) 
+        self.get_policy = self.get_policy_global 
 
         return self.get_all_C_values(self.get_local_global, multi_process, num_p)
+    
+    def get_policy_global(self, state, C):
+        return copy.deepcopy(self.pi_Cs[tuple(C)])
 
     def shapley_on_policy(self, pi_Cs, multi_process=False, num_p=1):
         """

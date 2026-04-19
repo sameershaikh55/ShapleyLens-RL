@@ -72,4 +72,4 @@ class Grid:
         new_state_reward_done = self.trans[self.pos[0], self.pos[1], action]
         self.pos = new_state_reward_done[:2]
 
-        return self.pos.copy(), new_state_reward_done[2], new_state_reward_done[3], False, False
+        return self.pos.copy(), new_state_reward_done[2], new_state_reward_done[3], False, None
