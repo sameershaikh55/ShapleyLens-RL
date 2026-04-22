@@ -1,17 +1,4 @@
-"""
-run.py
-------
-FrozenLake SVERL Experiment
-Struktur identisch zu Taxi
 
-Ausführen:
-    cd frozen_lake
-    python run.py
-"""
-
-# -------------------------------------------------
-# PATH FIX (damit utils, characteristics, shapley gefunden werden)
-# -------------------------------------------------
 import sys
 import os
 
