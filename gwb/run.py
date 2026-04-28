@@ -6,6 +6,7 @@ from gwb import Grid
 from utils import train, get_state_dist, F_not_i, tqdm_label
 from characteristics import Characteristics
 from shapley import Shapley
+from tau import TauValue
 import numpy as np
 
 
@@ -39,7 +40,7 @@ if __name__ == "__main__":
     shapley_on_policy_characteristics = characteristics.shapley_on_policy(pi_Cs=pi_Cs, multi_process=True, num_p=8)
     shapley_on_value_characteristics = characteristics.shapley_on_value(v_Cs=v_Cs, multi_process=True, num_p=8)
 
-    # ------------------------------------------------- SHAPLEY VALUES
+    """# ------------------------------------------------- SHAPLEY VALUES
     shapley = Shapley(states_to_explain)
     for characteristics, filename in zip([local_sverl_characteristics, 
                                         global_sverl_characteristics, 
@@ -50,4 +51,16 @@ if __name__ == "__main__":
         print(shapley_values)
 
         import pickle
-        with open('{}.pkl'.format(filename), 'wb') as file: pickle.dump(shapley_values, file)
+        with open('{}.pkl'.format(filename), 'wb') as file: pickle.dump(shapley_values, file)"""
+    # ------------------------------------------------- TAU VALUES
+    tau = TauValue(states_to_explain)
+    for characteristics, filename in zip([local_sverl_characteristics, 
+                                        global_sverl_characteristics, 
+                                        shapley_on_policy_characteristics, 
+                                        shapley_on_value_characteristics], ['local', 'global', 'policy', 'value_function']):
+        
+        tau_values = tau.run(characteristics)
+        print(tau_values)
+
+        import pickle
+        with open('{}.pkl'.format(filename), 'wb') as file: pickle.dump(tau_values, file)

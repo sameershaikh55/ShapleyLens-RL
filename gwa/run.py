@@ -57,7 +57,7 @@ if __name__ == "__main__":
     tau = TauValue(states_to_explain)
     for characteristics, filename in zip([local_sverl_characteristics, 
                                         global_sverl_characteristics, 
-                                        #shapley_on_policy_characteristics, 
+                                        shapley_on_policy_characteristics, 
                                         shapley_on_value_characteristics], ['local', 'global', 'policy', 'value_function']):
         
         tau_values = tau.run(characteristics)
