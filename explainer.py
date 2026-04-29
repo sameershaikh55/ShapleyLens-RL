@@ -1,6 +1,7 @@
 import argparse
 
 from shapley import Shapley
+from utopia_payoff import UtopiaPayoff
 
 class Explainer:
     def __init__(self):
@@ -10,7 +11,7 @@ class Explainer:
             "--explainer",
             type=str,
             default="shapley",
-            choices=["shapley"],
+            choices=["shapley","utopia-payoff"],
             help="Choose explainer",
         )
         self.args = parser.parse_args()
@@ -19,6 +20,8 @@ class Explainer:
     def set_states(self, states_to_explain):
         if self.args.explainer == "shapley":
             self.expl = Shapley(states_to_explain)
+        elif self.args.explainer == "utopia-payoff":
+            self.expl = UtopiaPayoff(states_to_explain)
 
     def run(self, characteristics):            
         return self.expl.run(characteristics)
