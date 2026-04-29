@@ -6,6 +6,8 @@ from tic_tac_toe import TTT
 from utils import train, get_state_dist, F_not_i, tqdm_label
 from characteristics import Characteristics
 from shapley import Shapley
+from tau import TauValue
+from printer import print_feature_table
 import numpy as np
 
 if __name__ == "__main__":
@@ -47,7 +49,19 @@ if __name__ == "__main__":
                                         shapley_on_value_characteristics], ['local', 'policy', 'value_function']):
         
         shapley_values = shapley.run(characteristics)
-        print(shapley_values)
+        print_feature_table("SHAPLEY Values - "+filename, shapley_values)
 
         import pickle
         with open('{}.pkl'.format(filename), 'wb') as file: pickle.dump(shapley_values, file)
+    
+    # ------------------------------------------------- Tau VALUES
+    tau = TauValue(states_to_explain)
+    for characteristics, filename in zip([local_sverl_characteristics, 
+                                        shapley_on_policy_characteristics, 
+                                        shapley_on_value_characteristics], ['local', 'policy', 'value_function']):
+        
+        tau_values = tau.run(characteristics)
+        print_feature_table("TAU Values - "+filename, tau_values)
+
+        import pickle
+        with open('{}.pkl'.format(filename), 'wb') as file: pickle.dump(tau_values, file)
