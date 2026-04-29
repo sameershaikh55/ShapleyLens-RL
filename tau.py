@@ -121,7 +121,7 @@ class TauValue:
             compensation = sum(vmax[j] for j in C if j != feature) # Sum of upper bounds for features in the coalition excluding feature i
 
             threat_value = coalition_value - compensation
-            best = max(best, threat_value)
+            best = np.maximum(best, threat_value)
 
         return best
 
