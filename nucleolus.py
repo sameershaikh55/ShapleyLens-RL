@@ -93,6 +93,7 @@ class Nucleolus:
             Nucleolus payoff vector for each explained state.
         """
         grand_C = tuple(self.F)
+        empty_C = ()           # empty coalition key
         nucleolus_values = {}
 
         for state in self.states:
@@ -118,11 +119,29 @@ class Nucleolus:
                         C: (float(val.flat[k]) if isinstance(val, np.ndarray) else float(val))
                         for C, val in C_values.items()
                     }
-                    per_comp.append(self._compute(scalar_C_values, float(v_N.flat[k])))
+                    # ---------- 0-normalisation (per component) ----------
+                    # Shapley's formula uses v(∅) as its baseline, so
+                    # ∑ φ_i = v(N) − v(∅).  To make the Nucleolus use the
+                    # same baseline we shift every coalition value by v(∅)
+                    # before the LP, so ṽ(S) = v(S) − v(∅) and ṽ(∅) = 0.
+                    # The LP's efficiency constraint then becomes
+                    # ∑ x_i = ṽ(N) = v(N) − v(∅),  matching Shapley.
+                    # For n = 2 features this makes the two solutions
+                    # mathematically identical (a well-known GT result).
+                    v_empty_k = scalar_C_values.get(empty_C, 0.0)
+                    norm_C_values = {C: v - v_empty_k for C, v in scalar_C_values.items()}
+                    v_N_norm_k    = float(v_N.flat[k]) - v_empty_k
+                    per_comp.append(self._compute(norm_C_values, v_N_norm_k))
                 # Shape (n_components, F_card) mirrors Shapley's policy layout.
                 nucleolus_values[tuple(state)] = np.array(per_comp)
             else:
-                nucleolus_values[tuple(state)] = self._compute(C_values, float(v_N))
+                # ---------- 0-normalisation (scalar game) ----------
+                # Same logic as above: subtract v(∅) from every coalition
+                # so the Nucleolus efficiency axiom matches Shapley's.
+                v_empty   = float(C_values.get(empty_C, 0.0))
+                norm_C_values = {C: float(v) - v_empty for C, v in C_values.items()}
+                v_N_norm  = float(v_N) - v_empty
+                nucleolus_values[tuple(state)] = self._compute(norm_C_values, v_N_norm)
 
         return nucleolus_values
 
