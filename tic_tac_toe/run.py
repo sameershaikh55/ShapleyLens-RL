@@ -1,14 +1,16 @@
 import sys
 sys.path.insert(0, '../')
-
 from q_agent_2 import Agent
 from tic_tac_toe import TTT
 from utils import train, get_state_dist, F_not_i, tqdm_label
 from characteristics import Characteristics
-from shapley import Shapley
 import numpy as np
 
+from explainer import Explainer
+
 if __name__ == "__main__":
+    explainer = Explainer()
+
     env = TTT()
     agent = Agent(env.state_dim, env.num_actions, epsilon=0.05, gamma=1, alpha=0.2)
     states_to_explain = np.array([[0, 0, 0,
@@ -41,13 +43,19 @@ if __name__ == "__main__":
     shapley_on_value_characteristics = characteristics.shapley_on_value(v_Cs=v_Cs, multi_process=True, num_p=8)
 
     # ------------------------------------------------- SHAPLEY VALUES
-    shapley = Shapley(states_to_explain)
-    for characteristics, filename in zip([local_sverl_characteristics, 
-                                        shapley_on_policy_characteristics, 
-                                        shapley_on_value_characteristics], ['local', 'policy', 'value_function']):
-        
-        shapley_values = shapley.run(characteristics)
-        print(shapley_values)
+    explainer.set_states(states_to_explain)
+    
+    for characteristics, characteristic_type in zip(
+        [
+            local_sverl_characteristics,
+            shapley_on_policy_characteristics,
+            shapley_on_value_characteristics,
+        ],
+        ["local", "policy", "value_function"],
+        ):
+        explainer_values = explainer.run(characteristics)
+        explainer.print(explainer_values, characteristic_type)
 
         import pickle
-        with open('{}.pkl'.format(filename), 'wb') as file: pickle.dump(shapley_values, file)
+
+        with open('{}.pkl'.format(characteristic_type), 'wb') as file: pickle.dump(explainer_values, file)
