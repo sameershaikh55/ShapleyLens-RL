@@ -6,11 +6,13 @@ from taxi_wrap import FactoredState
 from utils import get_state_dist, F_not_i, find_states_taxi, value_iteration, tqdm_label
 from characteristics import Characteristics
 from shapley import Shapley
+from gately import Gately
 import gymnasium as gym
 import numpy as np
+import pickle
 
 if __name__ == "__main__":
-    env = FactoredState(gym.make('Taxi-v3'))
+    env = FactoredState(gym.make('Taxi-v3', render_mode='human'))
     agent = Agent(env.state_dim, env.num_actions, epsilon=0.1, gamma=0.99, alpha=0.2)
     states_to_explain = np.array([[0, 3, 3, 1], [0, 3, 4, 3]]).astype(float)
 
@@ -40,12 +42,36 @@ if __name__ == "__main__":
 
     # ------------------------------------------------- SHAPLEY VALUES
     shapley = Shapley(states_to_explain)
+    gately = Gately(states_to_explain)
+    state_val = 1
+
+    print("SHAPLEY VALUES:")
     for characteristics, filename in zip([local_sverl_characteristics, 
                                         shapley_on_policy_characteristics, 
-                                        shapley_on_value_characteristics], ['local', 'policy', 'value_function']):
+                                        shapley_on_value_characteristics], ['local', 'policy', 'value_function', 'gately']):
         
         shapley_values = shapley.run(characteristics)
+        
+        print("State " + str(state_val) + ":")
         print(shapley_values)
 
-        import pickle
         with open('{}.pkl'.format(filename), 'wb') as file: pickle.dump(shapley_values, file)
+
+        state_val += 1
+    
+    print("-------------------------------------------------")
+    state_val = 1
+
+    print("GATELY VALUES:")
+    for characteristics, filename in zip([local_sverl_characteristics, 
+                                        shapley_on_policy_characteristics, 
+                                        shapley_on_value_characteristics], ['local', 'policy', 'value_function', 'gately']):
+        
+        gately_values = gately.run(characteristics)
+        
+        print("State " + str(state_val) + ":")
+        print(gately_values)
+
+        with open('{}.pkl'.format(filename), 'wb') as file: pickle.dump(gately_values, file)
+
+        state_val += 1
