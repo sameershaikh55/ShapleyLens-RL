@@ -158,7 +158,7 @@ class Characteristics:
         return dict(characteristic_values)
     
     def get_fast_local(self, C):
-        """
+        r"""
         The local SVERL characteristic values for one coalition for all states.
         Only valid for deterministic environments where states cannot be revisited.
         Much faster and more accurate.
