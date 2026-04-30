@@ -322,4 +322,7 @@ class Nucleolus:
 
             active = remaining
 
+        # Clamp values smaller than 1e-12 to exactly 0.0.
+        # LP solvers can return -1e-16 instead of 0, which prints as '-0'.
+        x_sol[np.abs(x_sol) < 1e-12] = 0.0
         return x_sol
