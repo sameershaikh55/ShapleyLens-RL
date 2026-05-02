@@ -49,7 +49,7 @@ class Gately:
             
             total_numerator = np.sum(numerators)
             total_v_single = np.sum(v_single)
-            
+
             current_state_gately = []
             
             # Falls die Summe der Zähler 0 ist (kein Feature hat Einfluss), 
