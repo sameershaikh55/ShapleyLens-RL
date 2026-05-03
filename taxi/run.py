@@ -4,6 +4,7 @@ sys.path.insert(0, '../')
 from q_agent_1 import Agent
 from taxi_wrap import FactoredState
 from utils import get_state_dist, F_not_i, find_states_taxi, value_iteration, tqdm_label
+from explainer import Explainer
 from characteristics import Characteristics
 from shapley import Shapley
 from banzhaf import Banzhaf
@@ -58,17 +59,22 @@ if __name__ == '__main__':
     # ------------------------------------------------- GET AGENT'S VALUE TABLE (for SHAP)
     agent.get_value_table()
 
-    # ------------------------------------------------- ALL PI_C
-    pi_Cs = {tuple(C): agent.get_pi_C(C, state_dist, states_to_explain) for C in tqdm_label(F_not_i(np.arange(env.state_dim)), 'Calculating all pi_C')}
+    # ------------------------------------------------- EXPLAINER
+    explainer = Explainer(env, agent, states_to_explain, instances=instances)
+    explainer.state_dist = state_dist
+    explainer.compute_pi_Cs()
+    explainer.compute_v_Cs()
+    characteristic_modes = ['local_sverl', 'shapley_on_policy', 'shapley_on_value']
+    characteristic_values = explainer.compute_characteristics(
+        characteristic_modes,
+        num_rolls=100,
+        multi_process=False,
+        num_p=17,
+    )
 
-    # ------------------------------------------------- ALL V_C
-    v_Cs = {tuple(C): agent.get_v_C(C, state_dist, states_to_explain) for C in tqdm_label(F_not_i(np.arange(env.state_dim)), 'Calculating all v_C')}
-
-    # ------------------------------------------------- ALL CHARACTERISTIC VALUES
-    characteristics = Characteristics(env, states_to_explain, instances=instances)
-    local_sverl_characteristics = characteristics.local_sverl_C_values(num_rolls=100, pi_Cs=pi_Cs, multi_process=False, num_p=17)
-    shapley_on_policy_characteristics = characteristics.shapley_on_policy(pi_Cs=pi_Cs, multi_process=False, num_p=17)
-    shapley_on_value_characteristics = characteristics.shapley_on_value(v_Cs=v_Cs, multi_process=False, num_p=17)
+    local_sverl_characteristics = characteristic_values['local_sverl']
+    shapley_on_policy_characteristics = characteristic_values['shapley_on_policy']
+    shapley_on_value_characteristics = characteristic_values['shapley_on_value']
 
     # ------------------------------------------------- SHAPLEY VALUES
     shapley = Shapley(states_to_explain)
@@ -83,24 +89,33 @@ if __name__ == '__main__':
         with open('{}.pkl'.format(filename), 'wb') as file: pickle.dump(shapley_values, file)
 
     # ------------------------------------------------- BANZHAF VALUES
-    banzhaf = Banzhaf(states_to_explain)
-    for characteristics, filename in zip([local_sverl_characteristics,
-                                          shapley_on_policy_characteristics,
-                                          shapley_on_value_characteristics], ['local', 'policy', 'value_function']):
-
-        banzhaf_values = banzhaf.run(characteristics)
+    banzhaf_results = explainer.run_values(
+        {
+            'local': local_sverl_characteristics,
+            'policy': shapley_on_policy_characteristics,
+            'value_function': shapley_on_value_characteristics,
+        },
+        methods=('banzhaf',),
+        normalized=True,
+    )['banzhaf']
+    for filename, banzhaf_values in banzhaf_results.items():
         print_explained_values(banzhaf_values, f"Banzhaf normalized ({filename})")
 
         import pickle
-        with open('banzhaf_{}.pkl'.format(filename), 'wb') as file: pickle.dump(banzhaf_values, file)
+        with open(f'banzhaf_{filename}.pkl', 'wb') as file: pickle.dump(banzhaf_values, file)
 
     # ------------------------------------------------- BANZHAF VALUES (UNNORMALIZED)
-    for characteristics, filename in zip([local_sverl_characteristics,
-                                          shapley_on_policy_characteristics,
-                                          shapley_on_value_characteristics], ['local', 'policy', 'value_function']):
-
-        banzhaf_values_unnorm = banzhaf.run(characteristics, normalized=False)
+    banzhaf_results_unnorm = explainer.run_values(
+        {
+            'local': local_sverl_characteristics,
+            'policy': shapley_on_policy_characteristics,
+            'value_function': shapley_on_value_characteristics,
+        },
+        methods=('banzhaf',),
+        normalized=False,
+    )['banzhaf']
+    for filename, banzhaf_values_unnorm in banzhaf_results_unnorm.items():
         print_explained_values(banzhaf_values_unnorm, f"Banzhaf unnormalized ({filename})")
 
         import pickle
-        with open('banzhaf_{}_unnormalized.pkl'.format(filename), 'wb') as file: pickle.dump(banzhaf_values_unnorm, file)
+        with open(f'banzhaf_{filename}_unnormalized.pkl', 'wb') as file: pickle.dump(banzhaf_values_unnorm, file)

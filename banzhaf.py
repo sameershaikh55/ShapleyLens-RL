@@ -37,3 +37,24 @@ class Banzhaf:
                 )
 
         return dict(banzhaf_values)
+
+    def run_all(self, characteristic_values_list, labels=None, normalized=True):
+        """
+        Run Banzhaf for multiple characteristic value sets in one call.
+
+        Args:
+            characteristic_values_list: list of characteristic-value dictionaries.
+            labels: optional list of names for each characteristic set.
+            normalized: whether to normalize each Banzhaf result.
+        Returns:
+            dict mapping label -> Banzhaf values dict.
+        """
+        if labels is None:
+            labels = [f'set_{i}' for i in range(len(characteristic_values_list))]
+        if len(labels) != len(characteristic_values_list):
+            raise ValueError('labels must have same length as characteristic_values_list')
+
+        return {
+            label: self.run(characteristic_values, normalized=normalized)
+            for label, characteristic_values in zip(labels, characteristic_values_list)
+        }

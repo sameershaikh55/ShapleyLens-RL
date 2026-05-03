@@ -80,7 +80,7 @@ class Characteristics:
         self.pi_Cs = pi_Cs
 
         # Function for calculating partial policy for global SVERL
-        self.get_policy = lambda state, C : copy.deepcopy(self.pi_Cs[tuple(C)]) 
+        self.get_policy = self.get_policy_global
 
         return self.get_all_C_values(self.get_local_global, multi_process, num_p)
 
@@ -167,6 +167,12 @@ class Characteristics:
         """
 
         return {tuple(state) : (value * self.pi_Cs[tuple(C)][tuple(state)]).sum() for state, value in self.action_values.items()}
+    
+    def get_policy_global(self, state, C):
+        """
+        Calculates the policy which global SVERL values uses for characteristic calculations.
+        """
+        return copy.deepcopy(self.pi_Cs[tuple(C)])
     
     def get_policy_local(self, state, C):
         """
