@@ -27,6 +27,39 @@ class Characteristics:
         if instances is None: self.reset_by_copy = False
         else: self.reset_by_copy = True
 
+    def _normalize_state_tuple(self, state):
+        """
+        Convert state to a normalized tuple for consistent dictionary key matching.
+        Handles numpy arrays with any numeric type.
+        """
+        if isinstance(state, np.ndarray):
+            return tuple(float(x) for x in state)
+        elif isinstance(state, (list, tuple)):
+            return tuple(float(x) for x in state)
+        else:
+            return (float(state),)
+    
+    def _get_pi_C_state(self, pi_C_dict, state):
+        """
+        Get policy for a state from pi_C dictionary, handling different key formats.
+        """
+        state_key = self._normalize_state_tuple(state)
+        
+        # Try direct lookup first
+        if state_key in pi_C_dict:
+            return pi_C_dict[state_key]
+        
+        # Try with integer keys
+        int_key = tuple(int(x) for x in state_key)
+        if int_key in pi_C_dict:
+            return pi_C_dict[int_key]
+        
+        # Debug: Print available keys for this coalition
+        print(f"Available keys in pi_C: {list(pi_C_dict.keys())[:5]}")  # Show first 5 keys
+        print(f"Looking for state_key: {state_key} (type: {type(state_key[0]) if state_key else 'empty'})")
+        
+        raise KeyError(f"State {state_key} not found in pi_C. Available states: {list(pi_C_dict.keys())}")
+
     def local_sverl_C_values(self, num_rolls, pi_Cs, multi_process=False, num_p=1):
         """
         Calculates local SVERL characteristics.
@@ -179,8 +212,12 @@ class Characteristics:
         Calculates the policy which local SVERL values uses for characteristic calculations.
         """
 
+        state_key = self._normalize_state_tuple(state)
         play_policy = copy.deepcopy(self.pi_Cs[tuple(self.F)]) # Fully observed policy.
-        play_policy[tuple(state)] = self.pi_Cs[tuple(C)][tuple(state)] # Partial policy for state being explained.
+        
+        # Use flexible lookup to handle different key formats
+        partial_policy = self._get_pi_C_state(self.pi_Cs[tuple(C)], state)
+        play_policy[state_key] = partial_policy
 
         return play_policy
     
