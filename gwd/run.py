@@ -26,7 +26,7 @@ if __name__ == "__main__":
     agent.get_value_table()
 
     # ------------------------------------------------- ALL PI_C
-    pi_Cs = {tuple(C): agent.get_pi_C(C, state_dist, states_to_explain) for C in tqdm_label(F_not_i(np.arange(env.state_dim)), 'Calculating all pi_C')}
+    pi_Cs = {tuple(C): dict(agent.get_pi_C(C, state_dist, states_to_explain)) for C in tqdm_label(F_not_i(np.arange(env.state_dim)), 'Calculating all pi_C')}
 
     # ------------------------------------------------- ALL V_C
     v_Cs = {tuple(C): agent.get_v_C(C, state_dist, states_to_explain) for C in tqdm_label(F_not_i(np.arange(env.state_dim)), 'Calculating all v_C')}
