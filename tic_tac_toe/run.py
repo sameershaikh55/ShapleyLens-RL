@@ -5,11 +5,12 @@ from tic_tac_toe import TTT
 from utils import train, get_state_dist, F_not_i, tqdm_label
 from characteristics import Characteristics
 import numpy as np
-
-from explainer import Explainer
+from shapley import Shapley
+from tau import TauValue
+from result_analyzer import ResultAnalyzer
+from result_visualizer import ResultVisualizer
 
 if __name__ == "__main__":
-    explainer = Explainer()
 
     env = TTT()
     agent = Agent(env.state_dim, env.num_actions, epsilon=0.05, gamma=1, alpha=0.2)
@@ -42,20 +43,45 @@ if __name__ == "__main__":
     shapley_on_policy_characteristics = characteristics.shapley_on_policy(pi_Cs=pi_Cs, multi_process=True, num_p=8)
     shapley_on_value_characteristics = characteristics.shapley_on_value(v_Cs=v_Cs, multi_process=True, num_p=8)
 
+    result={}
     # ------------------------------------------------- SHAPLEY VALUES
-    explainer.set_states(states_to_explain)
+    shapley = Shapley(states_to_explain)
+    result["shapley"] = {}
+    for characteristics, filename in zip([local_sverl_characteristics, 
+                                        shapley_on_policy_characteristics, 
+                                        shapley_on_value_characteristics], ['local', 'global', 'policy', 'value_function']):
+        
+        shapley_values = shapley.run(characteristics)
+        result["shapley"][filename] = shapley_values
+
     
-    for characteristics, characteristic_type in zip(
-        [
-            local_sverl_characteristics,
-            shapley_on_policy_characteristics,
-            shapley_on_value_characteristics,
-        ],
-        ["local", "policy", "value_function"],
-        ):
-        explainer_values = explainer.run(characteristics)
-        explainer.print(explainer_values, characteristic_type)
+    # ------------------------------------------------- TAU VALUES
+    tau = TauValue(states_to_explain)
+    result["tau"] = {}
+    for characteristics, filename in zip([local_sverl_characteristics, 
+                                        shapley_on_policy_characteristics, 
+                                        shapley_on_value_characteristics], ['local', 'global', 'policy', 'value_function']):
+        
+        tau_values = tau.run(characteristics)
+        result["tau"][filename] = tau_values
 
-        import pickle
 
-        with open('{}.pkl'.format(characteristic_type), 'wb') as file: pickle.dump(explainer_values, file)
+    # ------------------------------------------------- ANALYZE RESULTS
+    analyzer = ResultAnalyzer(result)
+
+    analyzer.print_all()
+    analyzer.print_summary()
+    analyzer.print_per_state_summary()
+    analyzer.print_summary_across_values()
+
+    analyzer.save_pickle("all_results.pkl")
+    analyzer.save_json("all_results.json")
+    analyzer.save_csv("all_results.csv")
+    analyzer.save_summary_csv("summary.csv")
+
+    # ------------------------------------------------- VISUALIZE RESULTS
+    visualizer = ResultVisualizer(analyzer.results)
+
+    visualizer.plot_heatmaps()
+    visualizer.plot_difference_heatmaps(left_value="tau", right_value="shapley")
+    visualizer.plot_value_comparison_bars()

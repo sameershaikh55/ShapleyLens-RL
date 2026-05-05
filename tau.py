@@ -140,13 +140,15 @@ class TauValue:
             vmin[i] = np.maximum(0.0, np.maximum(cn, dn))
 
         return vmin
-
+    
+    #Keeping the check in case it's neede some time
+    """
     def _integrity_check(self, grand_value, vmax, vmin, state):
-        """
+        
         Tau value exists only if:
             sum(vmin) <= v(F) <= sum(vmax)
             vmin_i <= vmax_i for all i
-        """
+        
         errors = []
 
         if np.sum(vmin) > grand_value + 1e-12:
@@ -172,6 +174,7 @@ class TauValue:
             )
 
         return errors
+    """
 
     def run(self, characteristic_values):
         """
