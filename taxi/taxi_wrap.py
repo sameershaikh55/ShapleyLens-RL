@@ -1,4 +1,7 @@
-import gymnasium as gym
+try:
+    import gym  # type: ignore[import]
+except ImportError:
+    import gymnasium as gym
 import numpy as np
 
 # Set environment and agent
@@ -15,6 +18,7 @@ class FactoredState(gym.ObservationWrapper):
 
         self.state_dim = self.observation_space.shape[0]
         self.num_actions = self.action_space.n
+        self.P = env.unwrapped.P
 
     def decode(self, obs):
 
