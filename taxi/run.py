@@ -119,3 +119,18 @@ if __name__ == '__main__':
 
         import pickle
         with open(f'banzhaf_{filename}_unnormalized.pkl', 'wb') as file: pickle.dump(banzhaf_values_unnorm, file)
+
+    # ------------------------------------------------- NUCLEOLUS VALUES
+    nucleolus_results = explainer.run_values(
+        {
+            'local': local_sverl_characteristics,
+            'policy': shapley_on_policy_characteristics,
+            'value_function': shapley_on_value_characteristics,
+        },
+        methods=('nucleolus',),
+    )['nucleolus']
+    for filename, nucleolus_values in nucleolus_results.items():
+        print_explained_values(nucleolus_values, f"Nucleolus ({filename})")
+
+        import pickle
+        with open(f'nucleolus_{filename}.pkl', 'wb') as file: pickle.dump(nucleolus_values, file)

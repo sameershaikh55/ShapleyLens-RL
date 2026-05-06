@@ -50,7 +50,7 @@ if __name__ == '__main__':
         characteristic_modes, num_rolls=NUM_ROLLS, multi_process=False, num_p=1)
     
     # Compute Shapley and Banzhaf values
-    results = explainer.run_values(characteristics, methods=('shapley', 'banzhaf'), normalized=True)
+    results = explainer.run_values(characteristics, methods=('shapley', 'banzhaf', 'nucleolus'), normalized=True)
     
     # Save results
     for method, method_results in results.items():

@@ -4,6 +4,7 @@ from utils import get_state_dist, F_not_i
 from characteristics import Characteristics
 from shapley import Shapley
 from banzhaf import Banzhaf
+from nucleolus import Nucleolus
 
 
 class Explainer:
@@ -99,6 +100,12 @@ class Explainer:
             banzhaf = Banzhaf(self.states_to_explain)
             results['banzhaf'] = {
                 name: banzhaf.run(characteristic_values, normalized=normalized)
+                for name, characteristic_values in characteristic_values_map.items()
+            }
+        if 'nucleolus' in methods:
+            nucleolus = Nucleolus(self.states_to_explain)
+            results['nucleolus'] = {
+                name: nucleolus.run(characteristic_values)
                 for name, characteristic_values in characteristic_values_map.items()
             }
         return results

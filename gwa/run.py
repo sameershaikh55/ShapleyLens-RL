@@ -27,7 +27,7 @@ if __name__ == '__main__':
     characteristic_modes = ['local_sverl', 'global_sverl', 'shapley_on_policy', 'shapley_on_value']
     characteristics = explainer.compute_characteristics(
         characteristic_modes, num_rolls=1e6, multi_process=True, num_p=5)
-    results = explainer.run_values(characteristics, methods=('shapley', 'banzhaf'), normalized=True)
+    results = explainer.run_values(characteristics, methods=('shapley', 'banzhaf', 'nucleolus'), normalized=True)
 
     for method, method_results in results.items():
         for name, values in method_results.items():
