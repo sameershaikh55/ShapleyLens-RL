@@ -121,7 +121,8 @@ class Agent:
         """
 
         # Mask out features not in C to find states which share observations.
-        all_states = np.array(list(self.policy.keys()))
+        # all_states = np.array(list(self.policy.keys()))
+        all_states = np.array(list(self.value_table.keys()))
         mask_states = mask_state(states_to_explain, self.state_dim, C)
         mask_all_states = mask_state(all_states, self.state_dim, C)
 
