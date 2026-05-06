@@ -328,27 +328,39 @@ class ResultAnalyzer:
     # ------------------------------------------------------------------
     # Export
 
-    def save_pickle(self, path: Union[str, Path]) -> None:
+    def save_pickle(self, output_dir: Union[str, Path] = "data/results.pkl") -> None:
         """Save raw results as pickle."""
-        with open(path, "wb") as file:
+        if output_dir is not None:
+            output_path = Path(output_dir).parent
+            output_path.mkdir(parents=True, exist_ok=True)
+        with open(output_dir, "wb") as file:
             pickle.dump(self.results, file)
 
-    def save_summary_pickle(self, path: Union[str, Path]) -> None:
+    def save_summary_pickle(self, output_dir: Union[str, Path] = "data/summary.pkl") -> None:
         """Save computed summary as pickle."""
-        with open(path, "wb") as file:
+        if output_dir is not None:
+            output_path = Path(output_dir).parent
+            output_path.mkdir(parents=True, exist_ok=True)
+        with open(output_dir, "wb") as file:
             pickle.dump(self.summary(), file)
 
-    def save_per_state_summary_pickle(self, path: Union[str, Path]) -> None:
+    def save_per_state_summary_pickle(self, output_dir: Union[str, Path] = "data/per_state_summary.pkl") -> None:
         """Save computed per-state summary as pickle."""
-        with open(path, "wb") as file:
+        if output_dir is not None:
+            output_path = Path(output_dir).parent
+            output_path.mkdir(parents=True, exist_ok=True)
+        with open(output_dir, "wb") as file:
             pickle.dump(self.per_state_summary(), file)
 
-    def save_across_values_summary_pickle(self, path: Union[str, Path]) -> None:
+    def save_across_values_summary_pickle(self, output_dir: Union[str, Path] = "data/summary_across_values.pkl") -> None:
         """Save computed across-values summary as pickle."""
-        with open(path, "wb") as file:
+        if output_dir is not None:
+            output_path = Path(output_dir).parent
+            output_path.mkdir(parents=True, exist_ok=True)
+        with open(output_dir, "wb") as file:
             pickle.dump(self.summary_across_values(), file)
 
-    def save_json(self, path: Union[str, Path], include_summary: bool = True) -> None:
+    def save_json(self, output_dir: Union[str, Path] = "data/results.json", include_summary: bool = True) -> None:
         """Save results, optionally including summary, as JSON."""
         payload: Dict[str, Any] = {"results": self._jsonify(self.results)}
 
@@ -357,10 +369,14 @@ class ResultAnalyzer:
             payload["per_state_summary"] = self._jsonify(self.per_state_summary())
             payload["summary_across_values"] = self._jsonify(self.summary_across_values())
 
-        with open(path, "w", encoding="utf-8") as file:
+        if output_dir is not None:
+            output_path = Path(output_dir).parent
+            output_path.mkdir(parents=True, exist_ok=True)
+
+        with open(output_dir, "w", encoding="utf-8") as file:
             json.dump(payload, file, indent=2, ensure_ascii=False)
 
-    def save_csv(self, path: Union[str, Path]) -> None:
+    def save_csv(self, output_dir: Union[str, Path] = "data/results.csv") -> None:
         """
         Save flattened result rows to CSV.
 
@@ -368,7 +384,11 @@ class ResultAnalyzer:
         """
         rows = self.flatten_results()
 
-        with open(path, "w", newline="", encoding="utf-8") as file:
+        if output_dir is not None:
+            output_path = Path(output_dir).parent
+            output_path.mkdir(parents=True, exist_ok=True)
+
+        with open(output_dir, "w", newline="", encoding="utf-8") as file:
             writer = csv.DictWriter(
                 file,
                 fieldnames=[
@@ -383,7 +403,7 @@ class ResultAnalyzer:
             writer.writeheader()
             writer.writerows(rows)
 
-    def save_summary_csv(self, path: Union[str, Path]) -> None:
+    def save_summary_csv(self, output_dir: Union[str, Path] = "data/summary.csv") -> None:
         """
         Save all available summary statistics to one CSV:
             - summary()
@@ -466,7 +486,11 @@ class ResultAnalyzer:
 
         # --------------------------------------------------
         # write csv
-        with open(path, "w", newline="", encoding="utf-8") as file:
+        if output_dir is not None:
+            output_path = Path(output_dir).parent
+            output_path.mkdir(parents=True, exist_ok=True)
+
+        with open(output_dir, "w", newline="", encoding="utf-8") as file:
             writer = csv.DictWriter(
                 file,
                 fieldnames=[
