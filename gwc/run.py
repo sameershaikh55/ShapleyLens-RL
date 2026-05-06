@@ -76,10 +76,10 @@ if __name__ == "__main__":
     analyzer.print_per_state_summary()
     analyzer.print_summary_across_values()
 
-    analyzer.save_pickle("all_results.pkl")
-    analyzer.save_json("all_results.json")
-    analyzer.save_csv("all_results.csv")
-    analyzer.save_summary_csv("summary.csv")
+    analyzer.save_pickle()
+    analyzer.save_json()
+    analyzer.save_csv()
+    analyzer.save_summary_csv()
 
     # ------------------------------------------------- VISUALIZE RESULTS
     visualizer = ResultVisualizer(analyzer.results)
