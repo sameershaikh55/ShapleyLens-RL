@@ -1,15 +1,27 @@
 import numpy as np
 
 class UtopiaPayoff:
-    def __init__(self, states_to_explain):
+    def __init__(self, states_to_explain, normalized=False):
         self.F_card = len(states_to_explain[0])
         self.F = np.arange(self.F_card)
         self.states = states_to_explain
+        self.normalized = normalized
+
+    def _normalize_scalar_values(self, feature_values, v_full, v_empty):
+        values = np.asarray(feature_values, dtype=float)
+        total = np.asarray(v_full).item() - np.asarray(v_empty).item()
+        s = values.sum()
+
+        if np.isclose(s, 0.0):
+            return feature_values
+
+        return list(values * (total / s))
 
     def run(self, characteristic_values):
         utopia_values = {}
 
         full_coalition = tuple(self.F)
+        empty_coalition = tuple([])
 
         for state in self.states:
             state_key = tuple(state)
@@ -25,6 +37,14 @@ class UtopiaPayoff:
                 v_without_i = np.asarray(C_values[coalition_without_i])
 
                 feature_values.append(v_full - v_without_i)
+            
+            # Optionaly: Normalize values
+            if self.normalized:
+                if np.asarray(feature_values[0]).shape == ():
+                    if empty_coalition in C_values:
+                        feature_values = self._normalize_scalar_values(
+                            feature_values, v_full, C_values[empty_coalition]
+                        )
 
             utopia_values[state_key] = feature_values
 
