@@ -2,6 +2,9 @@ import argparse
 
 from shapley import Shapley
 from utopia_payoff import UtopiaPayoff
+from gately import Gately
+from banzhaf import Banzhaf
+from nucleolus import Nucleolus
 
 class Explainer:
     def __init__(self):
@@ -42,16 +45,16 @@ class Explainer:
         if self.first_print == True:
             self.first_print = False
             print(self.args.explainer.replace("_", " ").title() + ":")
-        print(explainer_values)  
+        print(explainer_values)
 
     def get_cache(self):
         import pickle
 
-        with open("local.pkl", "rb") as f:
+        with open("local.cache", "rb") as f:
             local = pickle.load(f)
-        with open("policy.pkl", "rb") as f:
+        with open("policy.cache", "rb") as f:
             policy = pickle.load(f)
-        with open("value_function.pkl", "rb") as f:
+        with open("value_function.cache", "rb") as f:
             value_function = pickle.load(f)
 
         return local, policy, value_function

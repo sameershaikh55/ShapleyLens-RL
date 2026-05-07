@@ -59,11 +59,11 @@ if __name__ == "__main__":
     names = ["local", "policy", "value_function"]
 
     for char_data, characteristic_type in zip(char_list, names):
-        if explainer.args.cache:
-            explainer_values = char_data
-        else:
-            explainer_values = explainer.run(char_data)
+        explainer_values = explainer.run(char_data)
+        explainer.print(explainer_values, characteristic_type)
 
-            import pickle
+        import pickle
+        with open('{}.pkl'.format(characteristic_type), 'wb') as file: pickle.dump(explainer_values, file)
 
-            with open('{}.pkl'.format(characteristic_type), 'wb') as file: pickle.dump(explainer_values, file)
+        if not explainer.args.cache:
+            with open('{}.cache'.format(characteristic_type), 'wb') as file: pickle.dump(char_data, file)
