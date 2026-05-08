@@ -5,6 +5,7 @@ from utopia_payoff import UtopiaPayoff
 from gately import Gately
 from banzhaf import Banzhaf
 from nucleolus import Nucleolus
+from tau import TauValue
 
 class Explainer:
     def __init__(self):
@@ -14,7 +15,7 @@ class Explainer:
             "--explainer",
             type=str,
             default="shapley",
-            choices=["shapley","utopia-payoff"],
+            choices=["shapley","utopia-payoff", "gately", "banzhaf", "nucleolus", "tau"],
             help="Choose explainer",
         )
         parser.add_argument(
@@ -37,6 +38,14 @@ class Explainer:
             self.expl = Shapley(states_to_explain)
         elif self.args.explainer == "utopia-payoff":
             self.expl = UtopiaPayoff(states_to_explain, normalized=self.args.normalize)
+        elif self.args.explainer == "gately":
+            self.expl = Gately(states_to_explain)
+        elif self.args.explainer == "banzhaf":
+            self.expl = Banzhaf(states_to_explain, normalized=self.args.normalize)
+        elif self.args.explainer == "nucleolus":
+            self.expl = Nucleolus(states_to_explain)
+        elif self.args.explainer == "tau":
+            self.expl = TauValue(states_to_explain)
 
     def run(self, characteristics):            
         return self.expl.run(characteristics)

@@ -48,7 +48,7 @@ if __name__ == "__main__":
         policy_characteristics = characteristics.shapley_on_policy(pi_Cs=pi_Cs, multi_process=True, num_p=8)
         value_characteristics = characteristics.shapley_on_value(v_Cs=v_Cs, multi_process=True, num_p=8)
 
-    # ------------------------------------------------- SHAPLEY VALUES
+    # ------------------------------------------------- EXPLAINER VALUES
     explainer.set_states(states_to_explain)
 
     char_list = [

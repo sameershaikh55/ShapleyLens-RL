@@ -8,18 +8,19 @@ class Banzhaf:
     Calculates Banzhaf values given characteristic values.
     """
 
-    def __init__(self, states_to_explain):
+    def __init__(self, states_to_explain, normalized=False):
         self.F_card = len(states_to_explain[0])
         self.F = np.arange(self.F_card)
         self.states = states_to_explain
+        self.normalized = normalized
 
-    def run(self, characteristic_values, normalized=True):
+    def run(self, characteristic_values):
         """
         Calculates all Banzhaf values for every state and feature.
         If normalized=True, divides by 2^(n-1); otherwise, returns raw sum.
         """
         banzhaf_values = defaultdict(lambda: [[] for _ in range(self.F_card)])
-        normalizer = 2 ** (self.F_card - 1) if normalized else 1
+        normalizer = 2 ** (self.F_card - 1) if self.normalized else 1
 
         for state in self.states:
             C_values = {C: value_table[tuple(state)] for C, value_table in characteristic_values.items()}
