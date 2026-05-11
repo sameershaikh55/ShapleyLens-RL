@@ -410,11 +410,15 @@ class ResultCalculator:
 
     def format_value(self, value: Any) -> str:
         """Format scalar or vector values for terminal output."""
-        arr = np.asarray(value)
-        if arr.ndim == 0:
+        arr = self.clean_small_values(value)
+
+        if np.asarray(arr).ndim == 0:
             return f"{float(arr):.{self.digits}f}"
-        flat = arr.flatten()
-        return "[" + ", ".join(f"{float(v):.{self.digits}f}" for v in flat) + "]"
+
+        flat = np.asarray(arr).flatten()
+        return "[" + ", ".join(
+            f"{float(v):.{self.digits}f}" for v in flat
+        ) + "]"
 
     def group_by_feature(self, values: StateValues) -> Dict[int, List[Any]]:
         """Group state values by feature index."""
@@ -447,10 +451,12 @@ class ResultCalculator:
 
     def to_serializable(self, value: Any) -> Any:
         """Convert numpy values to JSON/CSV-friendly Python values."""
-        arr = np.asarray(value)
-        if arr.ndim == 0:
+        arr = self.clean_small_values(value)
+
+        if np.asarray(arr).ndim == 0:
             return float(arr)
-        return arr.tolist()
+
+        return np.asarray(arr).tolist()
 
     def pythonify(self, obj: Any) -> Any:
         """Recursively convert numpy values to plain Python values."""
@@ -464,9 +470,9 @@ class ResultCalculator:
         if isinstance(obj, tuple):
             return tuple(self.pythonify(v) for v in obj)
         if isinstance(obj, np.ndarray):
-            return obj.tolist()
+            return self.clean_small_values(obj).tolist()
         if isinstance(obj, (np.integer, np.floating)):
-            return obj.item()
+            return self.clean_small_values(obj)
         return obj
 
     def jsonify(self, obj: Any) -> Any:

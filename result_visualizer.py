@@ -465,6 +465,8 @@ class ResultVisualizer:
         annotate: bool,
         centered: bool = False,
     ) -> None:
+        
+        matrix = self.calculator.clean_small_values(matrix)
         if matrix.size == 0:
             return
 
@@ -507,6 +509,7 @@ class ResultVisualizer:
             plt.close(fig)
 
     def _print_matrix(self, title: str, states: List[State], matrix: np.ndarray) -> None:
+        matrix = self.calculator.clean_small_values(matrix)
         print("\n" + "=" * 100)
         print(title)
         print("=" * 100)
