@@ -14,14 +14,12 @@ vectors. For vector-valued values, you can select one component/action via
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-
-State = Tuple[Any, ...]
-Results = Mapping[str, Mapping[str, Mapping[State, List[Any]]]]
+from result_calculator import ResultCalculator, Results, State
 
 
 class ResultVisualizer:
@@ -48,9 +46,13 @@ class ResultVisualizer:
     """
 
     def __init__(self, results: Results, feature_names: Optional[List[str]] = None, digits: int = 3) -> None:
-        self.results = results
+        self.calculator = ResultCalculator(results=results, feature_names=feature_names, digits=digits)
         self.feature_names = feature_names
         self.digits = digits
+
+    @property
+    def results(self):
+        return self.calculator.results
 
     # ------------------------------------------------------------------
     # Public plotting methods
@@ -97,20 +99,16 @@ class ResultVisualizer:
         """
         matrices: Dict[Tuple[str, str], np.ndarray] = {}
 
-        selected_value_names = self._select_value_names(value_names)
-
-        for value_name in selected_value_names:
+        for value_name in self.calculator.select_value_names(value_names):
             characteristic_dict = self.results[value_name]
-            selected_characteristics = self._select_characteristic_names(
+            selected_characteristics = self.calculator.select_characteristic_names(
                 characteristic_dict, characteristic_names
             )
 
             for characteristic_name in selected_characteristics:
                 values = characteristic_dict[characteristic_name]
-                states, matrix = self._values_to_matrix(
-                    values,
-                    component=component,
-                    vector_mode=vector_mode,
+                states, matrix = self.calculator.state_values_to_matrix(
+                    values, component=component, vector_mode=vector_mode
                 )
 
                 matrices[(value_name, characteristic_name)] = matrix
@@ -118,7 +116,7 @@ class ResultVisualizer:
                 title = f"{value_name.upper()} - {characteristic_name}"
                 if component is not None:
                     title += f" - component/action {component}"
-                elif self._contains_vector_values(values):
+                elif self.calculator.contains_vector_values(values):
                     title += f" - {vector_mode}"
 
                 if print_values:
@@ -129,7 +127,7 @@ class ResultVisualizer:
                     states=states,
                     title=title,
                     output_dir=output_dir,
-                    filename=self._safe_filename(title, file_format),
+                    filename=self.calculator.safe_filename(title, file_format),
                     show=show,
                     annotate=annotate,
                 )
@@ -172,7 +170,6 @@ class ResultVisualizer:
             file_format: File extension, e.g. "png", "pdf", "svg".
             annotate: Whether to print cell values inside heatmap cells.
             absolute: If True, plot abs(left - right) instead of signed difference.
-
         Returns:
             Dict mapping characteristic_name to the difference matrix.
         """
@@ -194,40 +191,28 @@ class ResultVisualizer:
             )
 
         differences: Dict[str, np.ndarray] = {}
+        common_chars = self.calculator.common_characteristics(left_value, right_value, characteristic_names)
 
         for characteristic_name in common_chars:
+            states, diff_matrix = self.calculator.difference_matrix(
+                left_value=left_value,
+                right_value=right_value,
+                characteristic_name=characteristic_name,
+                component=component,
+                vector_mode=vector_mode,
+                absolute=absolute,
+            )
+            differences[characteristic_name] = diff_matrix
+
             left_values = self.results[left_value][characteristic_name]
             right_values = self.results[right_value][characteristic_name]
-
-            states, left_matrix = self._values_to_matrix(
-                left_values,
-                component=component,
-                vector_mode=vector_mode,
-            )
-            right_states, right_matrix = self._values_to_matrix(
-                right_values,
-                component=component,
-                vector_mode=vector_mode,
-            )
-
-            if states != right_states:
-                raise ValueError(
-                    f"State mismatch for characteristic {characteristic_name}. "
-                    f"Both value types must contain the same states in the same normalized order."
-                )
-
-            diff_matrix = self._clean_small_values(left_matrix - right_matrix)
-            if absolute:
-                diff_matrix = self._clean_small_values(np.abs(diff_matrix))
-
-            differences[characteristic_name] = diff_matrix
 
             title = f"DIFF {left_value.upper()} - {right_value.upper()} - {characteristic_name}"
             if absolute:
                 title = f"ABS {title}"
             if component is not None:
                 title += f" - component/action {component}"
-            elif self._contains_vector_values(left_values) or self._contains_vector_values(right_values):
+            elif self.calculator.contains_vector_values(left_values) or self.calculator.contains_vector_values(right_values):
                 title += f" - {vector_mode}"
 
             if print_values:
@@ -238,14 +223,14 @@ class ResultVisualizer:
                 states=states,
                 title=title,
                 output_dir=output_dir,
-                filename=self._safe_filename(title, file_format),
+                filename=self.calculator.safe_filename(title, file_format),
                 show=show,
                 annotate=annotate,
                 centered=True,
             )
 
         return differences
-    
+
     def plot_value_comparison_bars(
         self,
         characteristic_names=None,
@@ -277,69 +262,39 @@ class ResultVisualizer:
             Dict mapping (characteristic, state, feature) to plotted statistics.
         """
         output = {}
-
         all_value_names = list(self.results.keys())
-
-        all_characteristics = sorted(
-            set().union(*(self.results[value_name].keys() for value_name in all_value_names))
-        )
-
-        if characteristic_names is None:
-            selected_characteristics = all_characteristics
-        else:
-            selected_characteristics = list(characteristic_names)
+        all_characteristics = sorted(set().union(*(self.results[v].keys() for v in all_value_names)))
+        selected_characteristics = all_characteristics if characteristic_names is None else list(characteristic_names)
 
         for characteristic_name in selected_characteristics:
-            value_names = [
-                value_name
-                for value_name in all_value_names
-                if characteristic_name in self.results[value_name]
-            ]
-
+            value_names = [v for v in all_value_names if characteristic_name in self.results[v]]
             if not value_names:
                 continue
 
             all_states = sorted(
-                set().union(
-                    *[
-                        set(self.results[value_name][characteristic_name].keys())
-                        for value_name in value_names
-                    ]
-                ),
+                set().union(*[set(self.results[v][characteristic_name].keys()) for v in value_names]),
                 key=str,
             )
-
-            selected_states = all_states if states is None else [self._normalize_state(s) for s in states]
+            selected_states = all_states if states is None else [self.calculator.normalize_state(s) for s in states]
 
             for state in selected_states:
-                available_value_names = [
-                    value_name
-                    for value_name in value_names
-                    if state in self.results[value_name][characteristic_name]
-                ]
-
+                available_value_names = [v for v in value_names if state in self.results[v][characteristic_name]]
                 if not available_value_names:
                     continue
 
-                num_features = len(
-                    self.results[available_value_names[0]][characteristic_name][state]
-                )
-
+                num_features = len(self.results[available_value_names[0]][characteristic_name][state])
                 selected_features = range(num_features) if features is None else features
 
                 for feature_idx in selected_features:
-                    labels = []
-                    raw_values = []
+                    labels, raw_values = [], []
 
                     for value_name in available_value_names:
                         value = self.results[value_name][characteristic_name][state][feature_idx]
-                        scalar = self._scalarize_value(value, component=None, vector_mode="mean")
-
+                        scalar = self.calculator.scalarize_value(value, component=None, vector_mode="mean")
                         labels.append(value_name)
                         raw_values.append(scalar)
 
-                    values_arr = self._clean_small_values(np.asarray(raw_values, dtype=float))
-
+                    values_arr = self.calculator.clean_small_values(np.asarray(raw_values, dtype=float))
                     mean = float(np.mean(values_arr))
                     std = float(np.std(values_arr))
                     min_value = float(np.min(values_arr))
@@ -352,12 +307,11 @@ class ResultVisualizer:
                         "min": min_value,
                         "max": max_value,
                     }
-
                     output[(characteristic_name, state, feature_idx)] = stats
 
                     title = (
                         f"VALUE COMPARISON - {characteristic_name} - "
-                        f"State {self._format_state(state)} - {self._feature_name(feature_idx)}"
+                        f"State {self.calculator.format_state(state)} - {self.calculator.feature_name(feature_idx)}"
                     )
 
                     if print_values:
@@ -373,37 +327,13 @@ class ResultVisualizer:
                         print(f"{'max':<16} {max_value:>14.{self.digits}f}")
 
                     fig, ax = plt.subplots(figsize=(max(6, len(labels) * 1.2 + 3), 5))
-
                     x = np.arange(len(labels))
                     ax.bar(x, values_arr)
 
-
-                    ax.axhline(
-                        mean,
-                        linestyle="--",
-                        linewidth=1.2,
-                        label=f"mean = {mean:.{self.digits}f}",
-                    )
-                    ax.axhline(
-                        min_value,
-                        linestyle=":",
-                        linewidth=1.0,
-                        label=f"min = {min_value:.{self.digits}f}",
-                    )
-
-                    ax.axhline(
-                        max_value,
-                        linestyle=":",
-                        linewidth=1.0,
-                        label=f"max = {max_value:.{self.digits}f}",
-                    )
-
-                    ax.axhspan(
-                        mean - std,
-                        mean + std,
-                        alpha=0.15,
-                        label=f"mean ± std = {mean:.{self.digits}f} ± {std:.{self.digits}f}",
-                    )
+                    ax.axhline(mean, linestyle="--", linewidth=1.2, label=f"mean = {mean:.{self.digits}f}")
+                    ax.axhline(min_value, linestyle=":", linewidth=1.0, label=f"min = {min_value:.{self.digits}f}")
+                    ax.axhline(max_value, linestyle=":", linewidth=1.0, label=f"max = {max_value:.{self.digits}f}")
+                    ax.axhspan(mean - std, mean + std, alpha=0.15, label=f"mean ± std = {mean:.{self.digits}f} ± {std:.{self.digits}f}")
 
                     ax.set_title(title)
                     ax.set_xlabel("Value type")
@@ -413,22 +343,15 @@ class ResultVisualizer:
                     ax.legend()
 
                     for idx, value in enumerate(values_arr):
-                        ax.text(
-                            idx,
-                            value,
-                            f"{value:.{self.digits}f}",
-                            ha="center",
-                            va="bottom" if value >= 0 else "top",
-                        )
+                        ax.text(idx, value, f"{value:.{self.digits}f}", ha="center", va="bottom" if value >= 0 else "top")
 
                     fig.tight_layout()
 
                     if output_dir is not None:
                         output_path = Path(output_dir)
                         output_path.mkdir(parents=True, exist_ok=True)
-
-                        filename = self._safe_filename(
-                            f"value_comparison_{characteristic_name}_state_{self._format_state(state, compact=True)}_{self._feature_name(feature_idx)}",
+                        filename = self.calculator.safe_filename(
+                            f"value_comparison_{characteristic_name}_state_{self.calculator.format_state(state, compact=True)}_{self.calculator.feature_name(feature_idx)}",
                             file_format,
                         )
                         fig.savefig(output_path / filename, bbox_inches="tight")
@@ -439,80 +362,94 @@ class ResultVisualizer:
                         plt.close(fig)
 
         return output
-    
 
-    # ------------------------------------------------------------------
-    # Matrix conversion
-
-    def _values_to_matrix(
+    def plot_action_bars(
         self,
-        values: Mapping[State, List[Any]],
-        component: Optional[int],
-        vector_mode: str,
-    ) -> Tuple[List[State], np.ndarray]:
-        """
-        Convert state -> feature values into a 2D matrix.
+        value_name: str,
+        characteristic_name: str,
+        states: Optional[Sequence[State]] = None,
+        output_dir: Optional[Union[str, Path]] = "plots/action_bars",
+        show: bool = False,
+        file_format: str = "png",
+        action_names: Optional[Sequence[str]] = None,
+        print_values: bool = True,
+    ) -> Dict[State, np.ndarray]:
+        """Plot grouped bar charts for vector-valued feature contributions."""
+        if value_name not in self.results:
+            raise KeyError(f"Unknown value type: {value_name}")
+        if characteristic_name not in self.results[value_name]:
+            raise KeyError(f"Unknown characteristic '{characteristic_name}' for value type '{value_name}'")
 
-        Rows: states
-        Columns: features
-        """
-        states = sorted([self._normalize_state(s) for s in values.keys()], key=str)
-        rows = []
+        values = self.results[value_name][characteristic_name]
+        available_states = sorted([self.calculator.normalize_state(s) for s in values.keys()], key=str)
+        selected_states = available_states if states is None else [self.calculator.normalize_state(s) for s in states]
+        matrices: Dict[State, np.ndarray] = {}
 
-        for state in states:
-            feature_values = values[state]
-            row = [
-                self._scalarize_value(value, component=component, vector_mode=vector_mode)
-                for value in feature_values
-            ]
-            rows.append(row)
+        for state in selected_states:
+            if state not in values:
+                raise KeyError(f"State {state} not found in {value_name}/{characteristic_name}")
 
-        return states, np.asarray(rows, dtype=float)
+            matrix = []
+            for value in values[state]:
+                arr = np.asarray(value, dtype=float)
+                if arr.ndim == 0:
+                    raise ValueError("plot_action_bars requires vector-valued feature values.")
+                matrix.append(arr.flatten())
 
-    def _scalarize_value(
-        self,
-        value: Any,
-        component: Optional[int],
-        vector_mode: str,
-    ) -> float:
-        """
-        Convert scalar or vector feature value to one scalar for heatmap plotting.
-        """
-        arr = np.asarray(value, dtype=float)
+            matrix = self.calculator.clean_small_values(np.asarray(matrix, dtype=float))
+            matrices[state] = matrix
+            num_features, num_actions = matrix.shape
 
-        if arr.ndim == 0:
-            return float(arr)
+            labels = [f"Action {i}" for i in range(num_actions)] if action_names is None else list(action_names)
+            if len(labels) != num_actions:
+                raise ValueError(f"action_names has length {len(labels)}, but vector has {num_actions} components.")
 
-        flat = arr.flatten()
+            if print_values:
+                print("\n" + "=" * 100)
+                print(f"ACTION BARS - {value_name.upper()} - {characteristic_name} - State {self.calculator.format_state(state)}")
+                print("=" * 100)
+                header = f"{'Feature':<16}" + "".join(f"{label:>14}" for label in labels)
+                print(header)
+                print("-" * 100)
+                for feature_idx in range(num_features):
+                    row = f"{self.calculator.feature_name(feature_idx):<16}" + "".join(
+                        f"{matrix[feature_idx, action_idx]:>14.{self.digits}f}"
+                        for action_idx in range(num_actions)
+                    )
+                    print(row)
 
-        if vector_mode == "component":
-            if component is None:
-                raise ValueError(
-                    "Vector-valued entries found. Pass component=<action_index> "
-                    "or use vector_mode='mean', 'sum', 'norm', or 'max_abs'."
+            x = np.arange(num_actions)
+            width = 0.8 / max(num_features, 1)
+            fig, ax = plt.subplots(figsize=(max(7, 1.2 * num_actions + 3), 5))
+
+            for feature_idx in range(num_features):
+                offset = (feature_idx - (num_features - 1) / 2) * width
+                ax.bar(x + offset, matrix[feature_idx], width, label=self.calculator.feature_name(feature_idx))
+
+            ax.axhline(0.0, linewidth=0.8)
+            ax.set_title(f"{value_name.upper()} - {characteristic_name} - State {self.calculator.format_state(state)}")
+            ax.set_xlabel("Action / Component")
+            ax.set_ylabel("Feature contribution")
+            ax.set_xticks(x)
+            ax.set_xticklabels(labels)
+            ax.legend(title="Feature")
+            fig.tight_layout()
+
+            if output_dir is not None:
+                output_path = Path(output_dir)
+                output_path.mkdir(parents=True, exist_ok=True)
+                filename = self.calculator.safe_filename(
+                    f"action_bars_{value_name}_{characteristic_name}_state_{self.calculator.format_state(state, compact=True)}",
+                    file_format,
                 )
-            if component < 0 or component >= len(flat):
-                raise IndexError(
-                    f"component={component} out of bounds for vector of length {len(flat)}"
-                )
-            return float(flat[component])
+                fig.savefig(output_path / filename, bbox_inches="tight")
 
-        if vector_mode == "mean":
-            return float(np.mean(flat))
+            if show:
+                plt.show()
+            else:
+                plt.close(fig)
 
-        if vector_mode == "sum":
-            return float(np.sum(flat))
-
-        if vector_mode == "norm":
-            return float(np.linalg.norm(flat))
-
-        if vector_mode == "max_abs":
-            idx = int(np.argmax(np.abs(flat)))
-            return float(flat[idx])
-
-        raise ValueError(
-            "Unknown vector_mode. Use 'component', 'mean', 'sum', 'norm', or 'max_abs'."
-        )
+        return matrices
 
     # ------------------------------------------------------------------
     # Plotting helpers
@@ -533,7 +470,6 @@ class ResultVisualizer:
 
         fig_width = max(6, 1.2 * matrix.shape[1] + 3)
         fig_height = max(4, 0.45 * matrix.shape[0] + 2)
-
         fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
         if centered:
@@ -548,23 +484,15 @@ class ResultVisualizer:
         ax.set_title(title)
         ax.set_xlabel("Feature")
         ax.set_ylabel("State")
-
         ax.set_xticks(np.arange(matrix.shape[1]))
-        ax.set_xticklabels([self._feature_name(i) for i in range(matrix.shape[1])])
-
+        ax.set_xticklabels([self.calculator.feature_name(i) for i in range(matrix.shape[1])])
         ax.set_yticks(np.arange(matrix.shape[0]))
-        ax.set_yticklabels([self._format_state(s) for s in states])
+        ax.set_yticklabels([self.calculator.format_state(s) for s in states])
 
         if annotate:
             for row_idx in range(matrix.shape[0]):
                 for col_idx in range(matrix.shape[1]):
-                    ax.text(
-                        col_idx,
-                        row_idx,
-                        f"{matrix[row_idx, col_idx]:.{self.digits}f}",
-                        ha="center",
-                        va="center",
-                    )
+                    ax.text(col_idx, row_idx, f"{matrix[row_idx, col_idx]:.{self.digits}f}", ha="center", va="center")
 
         fig.tight_layout()
 
@@ -582,101 +510,12 @@ class ResultVisualizer:
         print("\n" + "=" * 100)
         print(title)
         print("=" * 100)
-
-        header = f"{'State':<18}" + "".join(
-            f"{self._feature_name(i):>14}" for i in range(matrix.shape[1])
-        )
+        header = f"{'State':<18}" + "".join(f"{self.calculator.feature_name(i):>14}" for i in range(matrix.shape[1]))
         print(header)
         print("-" * 100)
 
         for state, row in zip(states, matrix):
-            row_text = f"{self._format_state(state):<18}" + "".join(
+            row_text = f"{self.calculator.format_state(state):<18}" + "".join(
                 f"{float(value):>14.{self.digits}f}" for value in row
             )
             print(row_text)
-
-    # ------------------------------------------------------------------
-    # Small helpers
-
-    def _select_value_names(self, value_names: Optional[Sequence[str]]) -> List[str]:
-        if value_names is None:
-            return list(self.results.keys())
-
-        missing = [name for name in value_names if name not in self.results]
-        if missing:
-            raise KeyError(f"Unknown value types: {missing}")
-
-        return list(value_names)
-
-    def _select_characteristic_names(
-        self,
-        characteristic_dict: Mapping[str, Mapping[State, List[Any]]],
-        characteristic_names: Optional[Sequence[str]],
-    ) -> List[str]:
-        if characteristic_names is None:
-            return list(characteristic_dict.keys())
-
-        missing = [name for name in characteristic_names if name not in characteristic_dict]
-        if missing:
-            raise KeyError(f"Unknown characteristics: {missing}")
-
-        return list(characteristic_names)
-
-    def _feature_name(self, idx: int) -> str:
-        if self.feature_names is not None and idx < len(self.feature_names):
-            return self.feature_names[idx]
-        return f"Feature {idx}"
-
-    def _normalize_state(self, state: Any) -> State:
-        if isinstance(state, tuple):
-            return state
-        if isinstance(state, np.ndarray):
-            return tuple(state.tolist())
-        if isinstance(state, list):
-            return tuple(state)
-        return (state,)
-
-    def _contains_vector_values(self, values: Mapping[State, List[Any]]) -> bool:
-        for feature_values in values.values():
-            for value in feature_values:
-                if np.asarray(value).ndim > 0:
-                    return True
-        return False
-
-    def _safe_filename(self, title: str, file_format: str) -> str:
-        safe = title.lower()
-        for ch in [" ", "-", "/", "\\", ":", "(", ")", "[", "]"]:
-            safe = safe.replace(ch, "_")
-        while "__" in safe:
-            safe = safe.replace("__", "_")
-        return safe.strip("_") + f".{file_format}"
-    
-    def _clean_small_values(self, arr, eps=1e-10):
-        arr = np.asarray(arr, dtype=float).copy()
-        arr[np.abs(arr) < eps] = 0.0
-        return arr
-    
-    def _format_state(
-        self,
-        state: State,
-        compact: bool = False,
-    ) -> str:
-        """
-        Convert stat tuple to clean human-readable string.
-
-        Example:
-            compact=False:
-                (0, 1)
-
-            compact=True:
-                (0_1)
-        """
-        cleaned = tuple(
-            int(x) if isinstance(x, np.integer) else x
-            for x in state
-        )
-
-        if compact:
-            return "(" + "_".join(str(x) for x in cleaned) + ")"
-
-        return str(cleaned)
