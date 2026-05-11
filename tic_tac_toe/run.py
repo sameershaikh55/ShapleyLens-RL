@@ -69,7 +69,7 @@ if __name__ == "__main__":
     # ------------------------------------------------- ANALYZE RESULTS
     analyzer = ResultAnalyzer(result)
 
-    analyzer.print_value_comparison(left_value="tau", right_value="shapley")
+    #analyzer.print_value_comparison(left_value="tau", right_value="shapley")
 
     analyzer.save_pickle()
     analyzer.save_json()
