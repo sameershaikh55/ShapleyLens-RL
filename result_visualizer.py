@@ -145,7 +145,7 @@ class ResultVisualizer:
         vector_mode: str = "mean",
         output_dir: Optional[Union[str, Path]] = "plots/diff",
         show: bool = False,
-        print_values: bool = True,
+        print_values: bool = False,
         file_format: str = "png",
         annotate: bool = True,
         absolute: bool = False,
@@ -254,7 +254,7 @@ class ResultVisualizer:
         output_dir="plots/value_comparison",
         show=False,
         file_format="png",
-        print_values=True,
+        print_values=False,
     ):
         """
         Plot value-method comparison bars for fixed characteristic, state and feature.
@@ -357,7 +357,7 @@ class ResultVisualizer:
 
                     title = (
                         f"VALUE COMPARISON - {characteristic_name} - "
-                        f"State {state} - {self._feature_name(feature_idx)}"
+                        f"State {self._format_state(state)} - {self._feature_name(feature_idx)}"
                     )
 
                     if print_values:
@@ -377,10 +377,33 @@ class ResultVisualizer:
                     x = np.arange(len(labels))
                     ax.bar(x, values_arr)
 
-                    ax.axhline(mean, linestyle="--", linewidth=1.2, label="mean")
-                    ax.axhline(min_value, linestyle=":", linewidth=1.0, label="min")
-                    ax.axhline(max_value, linestyle=":", linewidth=1.0, label="max")
-                    ax.axhspan(mean - std, mean + std, alpha=0.15, label="mean ± std")
+
+                    ax.axhline(
+                        mean,
+                        linestyle="--",
+                        linewidth=1.2,
+                        label=f"mean = {mean:.{self.digits}f}",
+                    )
+                    ax.axhline(
+                        min_value,
+                        linestyle=":",
+                        linewidth=1.0,
+                        label=f"min = {min_value:.{self.digits}f}",
+                    )
+
+                    ax.axhline(
+                        max_value,
+                        linestyle=":",
+                        linewidth=1.0,
+                        label=f"max = {max_value:.{self.digits}f}",
+                    )
+
+                    ax.axhspan(
+                        mean - std,
+                        mean + std,
+                        alpha=0.15,
+                        label=f"mean ± std = {mean:.{self.digits}f} ± {std:.{self.digits}f}",
+                    )
 
                     ax.set_title(title)
                     ax.set_xlabel("Value type")
@@ -404,7 +427,10 @@ class ResultVisualizer:
                         output_path = Path(output_dir)
                         output_path.mkdir(parents=True, exist_ok=True)
 
-                        filename = self._safe_filename(title, file_format)
+                        filename = self._safe_filename(
+                            f"value_comparison_{characteristic_name}_state_{self._format_state(state, compact=True)}_{self._feature_name(feature_idx)}",
+                            file_format,
+                        )
                         fig.savefig(output_path / filename, bbox_inches="tight")
 
                     if show:
@@ -527,7 +553,7 @@ class ResultVisualizer:
         ax.set_xticklabels([self._feature_name(i) for i in range(matrix.shape[1])])
 
         ax.set_yticks(np.arange(matrix.shape[0]))
-        ax.set_yticklabels([str(s) for s in states])
+        ax.set_yticklabels([self._format_state(s) for s in states])
 
         if annotate:
             for row_idx in range(matrix.shape[0]):
@@ -564,7 +590,7 @@ class ResultVisualizer:
         print("-" * 100)
 
         for state, row in zip(states, matrix):
-            row_text = f"{str(state):<18}" + "".join(
+            row_text = f"{self._format_state(state):<18}" + "".join(
                 f"{float(value):>14.{self.digits}f}" for value in row
             )
             print(row_text)
@@ -629,3 +655,28 @@ class ResultVisualizer:
         arr = np.asarray(arr, dtype=float).copy()
         arr[np.abs(arr) < eps] = 0.0
         return arr
+    
+    def _format_state(
+        self,
+        state: State,
+        compact: bool = False,
+    ) -> str:
+        """
+        Convert stat tuple to clean human-readable string.
+
+        Example:
+            compact=False:
+                (0, 1)
+
+            compact=True:
+                (0_1)
+        """
+        cleaned = tuple(
+            int(x) if isinstance(x, np.integer) else x
+            for x in state
+        )
+
+        if compact:
+            return "(" + "_".join(str(x) for x in cleaned) + ")"
+
+        return str(cleaned)

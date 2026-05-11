@@ -114,7 +114,7 @@ class ResultAnalyzer:
         print("=" * 80)
 
         for state, feature_values in values.items():
-            print(f"\nState {state}")
+            print(f"\nState {self._format_state(state)}")
             print("-" * 80)
             print(f"{'Feature':<16} {'Value':>30}")
             print("-" * 80)
@@ -123,9 +123,9 @@ class ResultAnalyzer:
                 name = self._feature_name(i)
                 print(f"{name:<16} {self.format_value(value):>30}")
 
-    def print_summary(self) -> None:
-        """Print summary statistics for all results."""
-        summary = self.summary()
+    def print_per_feature_summary(self) -> None:
+        """Print per-feature summary statistics for all results across states for all results.."""
+        summary = self.per_feature_summary()
 
         for value_name, characteristic_dict in summary.items():
             for characteristic_name, feature_stats in characteristic_dict.items():
@@ -173,7 +173,7 @@ class ResultAnalyzer:
 
                 for state, stats in state_dict.items():
                     print(
-                        f"{str(state):<18} "
+                        f"{self._format_state(state):<18} "
                         f"{self.format_value(stats['mean_across_features']):>18} "
                         f"{self.format_value(stats['std_across_features']):>18} "
                         f"{self.format_value(stats['sum_across_features']):>18} "
@@ -188,7 +188,11 @@ class ResultAnalyzer:
 
         for characteristic_name, state_dict in summary.items():
             for state, feature_stats in state_dict.items():
-                title = f"SUMMARY ACROSS VALUES - {characteristic_name} - State {state}"
+                title = (
+                    f"SUMMARY ACROSS VALUES - "
+                    f"{characteristic_name} - "
+                    f"State {self._format_state(state)}"
+                )
 
                 print("\n" + "=" * 80)
                 print(title)
@@ -211,10 +215,31 @@ class ResultAnalyzer:
                         f"{stats['count']:>10}"
                     )
 
+    def print_value_comparison(
+        self,
+        left_value: str,
+        right_value: str,
+        characteristic_names: Optional[List[str]] = None,
+        absolute: bool = False,
+    ) -> None:
+        """Print comparison left_value - right_value."""
+        comparison = self.compare_values(
+            left_value=left_value,
+            right_value=right_value,
+            characteristic_names=characteristic_names,
+            absolute=absolute,
+        )
+
+        label = f"ABS({left_value} - {right_value})" if absolute else f"{left_value} - {right_value}"
+
+        for characteristic_name, state_dict in comparison.items():
+            title = f"VALUE COMPARISON - {label} - {characteristic_name}"
+            self.print_feature_table(title, state_dict)
+
     # ------------------------------------------------------------------
     # Statistics
 
-    def summary(self) -> Dict[str, Dict[str, Dict[int, Dict[str, Any]]]]:
+    def per_feature_summary(self) -> Dict[str, Dict[str, Dict[int, Dict[str, Any]]]]:
         """
         Compute mean, std, min, max and count per value type,
         characteristic and feature across all states.
@@ -324,6 +349,74 @@ class ResultAnalyzer:
                     }
 
         return output
+    
+    def compare_values(
+        self,
+        left_value: str,
+        right_value: str,
+        characteristic_names: Optional[List[str]] = None,
+        absolute: bool = False,
+    ) -> Dict[str, Dict[State, List[Any]]]:
+        """
+        Compare two value types by computing left_value - right_value.
+
+        Args:
+            left_value: First value type, e.g. "tau".
+            right_value: Second value type, e.g. "shapley".
+            characteristic_names: Characteristics to compare. If None, compares all common characteristics.
+            absolute: If True, computes abs(left_value - right_value).
+
+        Returns:
+            Dict[characteristic][state][feature_index] = difference.
+        """
+        if left_value not in self.results:
+            raise KeyError(f"Unknown value type: {left_value}")
+        if right_value not in self.results:
+            raise KeyError(f"Unknown value type: {right_value}")
+
+        left_chars = set(self.results[left_value].keys())
+        right_chars = set(self.results[right_value].keys())
+        common_chars = sorted(left_chars & right_chars)
+
+        if characteristic_names is not None:
+            common_chars = [c for c in characteristic_names if c in common_chars]
+
+        if not common_chars:
+            raise ValueError(f"No common characteristics found between {left_value} and {right_value}.")
+
+        output: Dict[str, Dict[State, List[Any]]] = {}
+
+        for characteristic_name in common_chars:
+            output[characteristic_name] = {}
+
+            left_values = self.results[left_value][characteristic_name]
+            right_values = self.results[right_value][characteristic_name]
+
+            common_states = sorted(set(left_values.keys()) & set(right_values.keys()), key=str)
+
+            for state in common_states:
+                left_feature_values = left_values[state]
+                right_feature_values = right_values[state]
+
+                if len(left_feature_values) != len(right_feature_values):
+                    raise ValueError(
+                        f"Feature count mismatch for {characteristic_name}, state {state}."
+                    )
+
+                diffs = []
+
+                for left, right in zip(left_feature_values, right_feature_values):
+                    diff = np.asarray(left, dtype=float) - np.asarray(right, dtype=float)
+
+                    if absolute:
+                        diff = np.abs(diff)
+
+                    diff = self._clean_small_values(diff)
+                    diffs.append(self._pythonify(diff))
+
+                output[characteristic_name][state] = diffs
+
+        return output
 
     # ------------------------------------------------------------------
     # Export
@@ -334,15 +427,15 @@ class ResultAnalyzer:
             output_path = Path(output_dir).parent
             output_path.mkdir(parents=True, exist_ok=True)
         with open(output_dir, "wb") as file:
-            pickle.dump(self.results, file)
+            pickle.dump(self._pythonify(self.results), file)
 
-    def save_summary_pickle(self, output_dir: Union[str, Path] = "data/summary.pkl") -> None:
-        """Save computed summary as pickle."""
+    def save_per_feature_summary_pickle(self, output_dir: Union[str, Path] = "data/per_feature_summary.pkl") -> None:
+        """Save computed per-feature summary as pickle."""
         if output_dir is not None:
             output_path = Path(output_dir).parent
             output_path.mkdir(parents=True, exist_ok=True)
         with open(output_dir, "wb") as file:
-            pickle.dump(self.summary(), file)
+            pickle.dump(self._pythonify(self.per_feature_summary()), file)
 
     def save_per_state_summary_pickle(self, output_dir: Union[str, Path] = "data/per_state_summary.pkl") -> None:
         """Save computed per-state summary as pickle."""
@@ -360,12 +453,35 @@ class ResultAnalyzer:
         with open(output_dir, "wb") as file:
             pickle.dump(self.summary_across_values(), file)
 
+    def save_value_comparison_pickle(
+        self,
+        left_value: str,
+        right_value: str,
+        output_dir: Union[str, Path] = "data/value_comparison.pkl",
+        characteristic_names: Optional[List[str]] = None,
+        absolute: bool = False,
+    ) -> None:
+        """Save comparison left_value -right_value as pickle."""
+        comparison = self.compare_values(
+            left_value=left_value,
+            right_value=right_value,
+            characteristic_names=characteristic_names,
+            absolute=absolute,
+        )
+
+        if output_dir is not None:
+            output_path = Path(output_dir).parent
+            output_path.mkdir(parents=True, exist_ok=True)
+
+        with open(output_dir, "wb") as file:
+            pickle.dump(self._pythonify(comparison), file)
+
     def save_json(self, output_dir: Union[str, Path] = "data/results.json", include_summary: bool = True) -> None:
         """Save results, optionally including summary, as JSON."""
         payload: Dict[str, Any] = {"results": self._jsonify(self.results)}
 
         if include_summary:
-            payload["summary"] = self._jsonify(self.summary())
+            payload["per_feature_summary"] = self._jsonify(self.per_feature_summary())
             payload["per_state_summary"] = self._jsonify(self.per_state_summary())
             payload["summary_across_values"] = self._jsonify(self.summary_across_values())
 
@@ -406,22 +522,22 @@ class ResultAnalyzer:
     def save_summary_csv(self, output_dir: Union[str, Path] = "data/summary.csv") -> None:
         """
         Save all available summary statistics to one CSV:
-            - summary()
+            - per_feature_summary()
             - per_state_summary()
             - summary_across_values()
         """
         rows = []
 
         # --------------------------------------------------
-        # 1. summary()
-        normal_summary = self.summary()
+        # 1. per_feature_summary()
+        normal_summary = self.per_feature_summary()
 
         for value_name, characteristic_dict in normal_summary.items():
             for characteristic_name, feature_stats in characteristic_dict.items():
                 for feature_idx, stats in feature_stats.items():
                     rows.append(
                         {
-                            "summary_type": "summary",
+                            "summary_type": "per_feature_summary",
                             "value_name": value_name,
                             "characteristic": characteristic_name,
                             "state": "",
@@ -448,7 +564,7 @@ class ResultAnalyzer:
                             "summary_type": "per_state_summary",
                             "value_name": value_name,
                             "characteristic": characteristic_name,
-                            "state": str(state),
+                            "state": self._format_state(state),
                             "feature_index": "",
                             "feature_name": "",
                             "mean": self._to_serializable(stats["mean_across_features"]),
@@ -472,7 +588,7 @@ class ResultAnalyzer:
                             "summary_type": "summary_across_values",
                             "value_name": "ALL_VALUES",
                             "characteristic": characteristic_name,
-                            "state": str(state),
+                            "state": self._format_state(state),
                             "feature_index": feature_idx,
                             "feature_name": self._feature_name(feature_idx),
                             "mean": self._to_serializable(stats["mean"]),
@@ -511,6 +627,57 @@ class ResultAnalyzer:
             writer.writeheader()
             writer.writerows(rows)
 
+    def save_value_comparison_csv(
+        self,
+        left_value: str,
+        right_value: str,
+        output_dir: Union[str, Path] = "data/value_comparison.csv",
+        characteristic_names: Optional[List[str]] = None,
+        absolute: bool = False,
+    ) -> None:
+        """Save comparison left_value - right_value as CSV."""
+        comparison = self.compare_values(
+            left_value=left_value,
+            right_value=right_value,
+            characteristic_names=characteristic_names,
+            absolute=absolute,
+        )
+
+        rows = []
+
+        for characteristic_name, state_dict in comparison.items():
+            for state, feature_values in state_dict.items():
+                for feature_idx, value in enumerate(feature_values):
+                    rows.append(
+                        {
+                            "comparison": f"abs({left_value}-{right_value})" if absolute else f"{left_value}-{right_value}",
+                            "characteristic": characteristic_name,
+                            "state": self._format_state(state),
+                            "feature_index": feature_idx,
+                            "feature_name": self._feature_name(feature_idx),
+                            "value": self._to_serializable(value),
+                        }
+                    )
+
+        if output_dir is not None:
+            output_path = Path(output_dir).parent
+            output_path.mkdir(parents=True, exist_ok=True)
+
+        with open(output_dir, "w", newline="", encoding="utf-8") as file:
+            writer = csv.DictWriter(
+                file,
+                fieldnames=[
+                    "comparison",
+                    "characteristic",
+                    "state",
+                    "feature_index",
+                    "feature_name",
+                    "value",
+                ],
+            )
+            writer.writeheader()
+            writer.writerows(rows)
+
     # ------------------------------------------------------------------
     # Flattening
 
@@ -526,7 +693,7 @@ class ResultAnalyzer:
                             {
                                 "value_name": value_name,
                                 "characteristic": characteristic_name,
-                                "state": str(tuple(state)),
+                                "state": self._format_state(state),
                                 "feature_index": feature_idx,
                                 "feature_name": self._feature_name(feature_idx),
                                 "value": self._to_serializable(value),
@@ -555,11 +722,16 @@ class ResultAnalyzer:
 
     def _normalize_state(self, state: Any) -> State:
         if isinstance(state, tuple):
-            return state
+            return tuple(int(x) if isinstance(x, np.integer) else x for x in state)
+
         if isinstance(state, np.ndarray):
-            return tuple(state.tolist())
+            return tuple(int(x) if isinstance(x, np.integer) else x for x in state.tolist())
+
         if isinstance(state, list):
-            return tuple(state)
+            return tuple(int(x) if isinstance(x, np.integer) else x for x in state)
+        if isinstance(state, np.integer):
+            return (int(state),)
+
         return (state,)
 
     def _group_by_feature(self, values: StateValues) -> Dict[int, List[Any]]:
@@ -586,7 +758,10 @@ class ResultAnalyzer:
     def _jsonify(self, obj: Any) -> Any:
         """Recursively convert tuple keys and numpy values to JSON-safe objects."""
         if isinstance(obj, dict):
-            return {str(k): self._jsonify(v) for k, v in obj.items()}
+            return {
+                self._format_state(k) if isinstance(k, tuple) else str(k): self._jsonify(v)
+                for k, v in obj.items()
+            }
 
         if isinstance(obj, (list, tuple)):
             return [self._jsonify(v) for v in obj]
@@ -598,3 +773,59 @@ class ResultAnalyzer:
             return obj.item()
 
         return obj
+
+    def _format_state(
+        self,
+        state: State,
+        compact: bool = False,
+    ) -> str:
+        """
+        Convert state tuple to clean human-readable string.
+
+        Example:
+            compact=False:
+                (0, 1)
+
+            compact=True:
+                (0_1)
+        """
+        cleaned = tuple(
+            int(x) if isinstance(x, np.integer) else x
+            for x in state
+        )
+
+        if compact:
+            return "(" + "_".join(str(x) for x in cleaned) + ")"
+
+        return str(cleaned)
+    
+    def _pythonify(self, obj: Any) -> Any:
+        """Recursively convert numpy values toplain Python values for pickle/json/csv."""
+        if isinstance(obj, dict):
+            return {
+                self._normalize_state(k) if isinstance(k, tuple) else k: self._pythonify(v)
+                for k, v in obj.items()
+            }
+
+        if isinstance(obj, list):
+            return [self._pythonify(v) for v in obj]
+
+        if isinstance(obj, tuple):
+            return tuple(self._pythonify(v) for v in obj)
+
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+
+        if isinstance(obj, (np.integer, np.floating)):
+            return obj.item()
+
+        return obj
+    
+    def _clean_small_values(self, value: Any, eps: float = 1e-10) -> Any:
+        arr = np.asarray(value, dtype=float).copy()
+        arr[np.abs(arr) < eps] = 0.0
+
+        if arr.ndim == 0:
+            return float(arr)
+
+        return arr
