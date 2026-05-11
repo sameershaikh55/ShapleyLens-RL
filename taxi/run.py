@@ -15,7 +15,7 @@ import numpy as np
 import pickle
 
 if __name__ == "__main__":
-    env = FactoredState(gym.make('Taxi-v3', render_mode='human'))
+    env = FactoredState(gym.make('Taxi-v3'))
     agent = Agent(env.state_dim, env.num_actions, epsilon=0.1, gamma=0.99, alpha=0.2)
     states_to_explain = np.array([[0, 3, 3, 1], [0, 3, 4, 3]]).astype(float)
 
