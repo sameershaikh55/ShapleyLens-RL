@@ -71,9 +71,18 @@ class ResultAnalyzer:
     # Data management
 
     def add_result(self, value_name: str, characteristic_name: str, values: StateValues) -> None:
+        """
+        Add one result table.
+
+        Args:
+            value_name: e.g. "tau" or "shapley".
+            characteristic_name: e.g. "local", "global", "policy", "value_function".
+            values: dict mapping state -> list of feature values.
+        """
         self.calculator.add_result(value_name, characteristic_name, values)
 
     def add_results(self, results: Results) -> None:
+        """Add many nested results at once."""
         self.calculator.add_results(results)
 
     # ------------------------------------------------------------------
@@ -194,12 +203,42 @@ class ResultAnalyzer:
     # Calculations delegated to ResultCalculator
 
     def per_feature_summary(self) -> Dict[str, Dict[str, Dict[int, Dict[str, Any]]]]:
+        """
+        Compute mean, std, min, max and count per value type,
+        characteristic and feature across all states.
+
+        For scalar feature values, the statistics are scalars.
+        For vector feature values, the statistics are computed component-wise.
+        """
         return self.calculator.per_feature_summary()
 
     def per_state_summary(self) -> Dict[str, Dict[str, Dict[State, Dict[str, Any]]]]:
+        """
+        Compute summary statistics across features for each state.
+
+        Useful if you want to know how much total explanation mass or variation
+        a state has.
+        """
         return self.calculator.per_state_summary()
 
     def summary_across_values(self) -> Dict[str, Dict[State, Dict[int, Dict[str, Any]]]]:
+        """
+        Compute mean, std, min, max and count per characteristic, state and feature
+        across all value types.
+
+        Example:
+            If results contain both "tau" and "shapley", this computes statistics
+            over those value types for the same characteristic/state/feature.
+
+        Output structure:
+            output[characteristic_name][state][feature_idx] = {
+                "mean": ...,
+                "std": ...,
+                "min": ...,
+                "max": ...,
+                "count": ...
+            }
+        """
         return self.calculator.summary_across_values()
 
     def compare_values(
@@ -209,6 +248,18 @@ class ResultAnalyzer:
         characteristic_names: Optional[List[str]] = None,
         absolute: bool = False,
     ) -> Dict[str, Dict[State, List[Any]]]:
+        """
+        Compare two value types by computing left_value - right_value.
+
+        Args:
+            left_value: First value type, e.g. "tau".
+            right_value: Second value type, e.g. "shapley".
+            characteristic_names: Characteristics to compare. If None, compares all common characteristics.
+            absolute: If True, computes abs(left_value - right_value).
+
+        Returns:
+            Dict[characteristic][state][feature_index] = difference.
+        """
         return self.calculator.compare_values(left_value, right_value, characteristic_names, absolute)
 
     # ------------------------------------------------------------------
@@ -224,17 +275,21 @@ class ResultAnalyzer:
             pickle.dump(self.calculator.pythonify(self.results), file)
 
     def save_per_feature_summary_pickle(self, output_dir: Union[str, Path] = "data/per_feature_summary.pkl") -> None:
+        """Save computed per-feature summary as pickle."""
+
         self._ensure_parent(output_dir)
 
         with open(output_dir, "wb") as file:
             pickle.dump(self.calculator.pythonify(self.per_feature_summary()), file)
 
     def save_per_state_summary_pickle(self, output_dir: Union[str, Path] = "data/per_state_summary.pkl") -> None:
+        """Save computed per-state summary as pickle."""
         self._ensure_parent(output_dir)
         with open(output_dir, "wb") as file:
             pickle.dump(self.calculator.pythonify(self.per_state_summary()), file)
 
     def save_across_values_summary_pickle(self, output_dir: Union[str, Path] = "data/summary_across_values.pkl") -> None:
+        """Save computed across-values summary as pickle."""
         self._ensure_parent(output_dir)
         with open(output_dir, "wb") as file:
             pickle.dump(self.calculator.pythonify(self.summary_across_values()), file)
@@ -247,6 +302,7 @@ class ResultAnalyzer:
         characteristic_names: Optional[List[str]] = None,
         absolute: bool = False,
     ) -> None:
+        """Save comparison left_value -right_value as pickle."""
         comparison = self.compare_values(left_value, right_value, characteristic_names, absolute)
         self._ensure_parent(output_dir)
         with open(output_dir, "wb") as file:
@@ -278,7 +334,12 @@ class ResultAnalyzer:
             writer.writerows(rows)
 
     def save_summary_csv(self, output_dir: Union[str, Path] = "data/summary.csv") -> None:
-        """Save all available summary statistics to one CSV."""
+        """
+        Save all available summary statistics to one CSV:
+            - per_feature_summary()
+            - per_state_summary()
+            - summary_across_values()
+        """
         rows = []
 
         for value_name, characteristic_dict in self.per_feature_summary().items():
@@ -355,6 +416,7 @@ class ResultAnalyzer:
         characteristic_names: Optional[List[str]] = None,
         absolute: bool = False,
     ) -> None:
+        """Save comparison left_value - right_value as CSV."""
         comparison = self.compare_values(left_value, right_value, characteristic_names, absolute)
         rows = []
 
