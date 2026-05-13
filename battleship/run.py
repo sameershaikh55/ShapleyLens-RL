@@ -50,8 +50,8 @@ def collect_sample_states(env, agent, n_episodes=200, max_states=4):
 
 def run_explainer_demo():
     """
-    Kleines Raster (3x3): exakte Shapley/Banzhaf über alle Koalitionen sind machbar.
-    Das Standardspiel 5x8 hat 40 Merkmale -> 2^40 Koalitionen (nur Training/Test oben).
+    Kleines Raster (3x3): Shapley/Banzhaf; Ausgabe nur in *.pkl unter battleship/
+    (keine großen Dict-Ausdrucke im Terminal).
     """
     demo_env = Battleship(rows=3, cols=3, ship_sizes=[2, 1, 1], seed=0)
     demo_agent = TrainAgent(demo_env.state_dim, demo_env.num_actions)
@@ -65,7 +65,6 @@ def run_explainer_demo():
     states_to_explain = collect_sample_states(demo_env, demo_agent, n_episodes=400, max_states=2)
     instances = find_states_battleship(demo_agent, demo_env, states_to_explain, max_steps=500_000)
     if not instances:
-        print("Explainer-Demo: keine Environment-Instanzen gefunden (übersprungen).")
         return
     if len(instances) < len(states_to_explain):
         states_to_explain = np.stack([np.array(k, dtype=np.float64) for k in instances.keys()], axis=0)
@@ -84,8 +83,6 @@ def run_explainer_demo():
     out_dir = os.path.dirname(os.path.abspath(__file__))
     for method, method_results in results.items():
         for name, values in method_results.items():
-            print(f"\n=== {method.capitalize()} ({name}) ===")
-            print(values)
             path = os.path.join(out_dir, f"battleship_demo_{method}_{name}.pkl")
             with open(path, "wb") as f:
                 pickle.dump(values, f)
@@ -142,8 +139,4 @@ if __name__ == "__main__":
         print("Verloren oder abgebrochen.")
     print(f"Treffer: {env.hits} | Schritte: {env.steps}")
 
-    print(
-        "\nHinweis: Exakte Koalitionsauswertung für alle 40 Zellen erfordert 2^40 Charakteristiken."
-        "\nExplainer-Demo mit 3x3-Raster:"
-    )
     run_explainer_demo()
