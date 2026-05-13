@@ -53,12 +53,8 @@ class Characteristics:
         int_key = tuple(int(x) for x in state_key)
         if int_key in pi_C_dict:
             return pi_C_dict[int_key]
-        
-        # Debug: Print available keys for this coalition
-        print(f"Available keys in pi_C: {list(pi_C_dict.keys())[:5]}")  # Show first 5 keys
-        print(f"Looking for state_key: {state_key} (type: {type(state_key[0]) if state_key else 'empty'})")
-        
-        raise KeyError(f"State {state_key} not found in pi_C. Available states: {list(pi_C_dict.keys())}")
+
+        raise KeyError(f"State {state_key} not found in pi_C")
 
     def local_sverl_C_values(self, num_rolls, pi_Cs, multi_process=False, num_p=1):
         """
@@ -227,12 +223,23 @@ class Characteristics:
         """
 
         # Env set to state being explained, either using saved instance or built into env class.
-        if self.reset_by_copy: self.env = copy.deepcopy(self.instances[tuple(state)])
-        else: state, _ = self.env.reset(state)
+        if self.reset_by_copy:
+            sk = self._normalize_state_tuple(state)
+            inst = self.instances.get(tuple(state))
+            if inst is None:
+                inst = self.instances.get(sk)
+            if inst is None:
+                int_key = tuple(int(x) for x in np.asarray(state).flatten())
+                inst = self.instances.get(int_key)
+            self.env = copy.deepcopy(inst)
+        else:
+            state, _ = self.env.reset(state)
 
         ret = 0
+        s_key = self._normalize_state_tuple(state)
 
-        if action is None: action = np.random.choice(self.env.num_actions, p=play_policy[tuple(state)])
+        if action is None:
+            action = np.random.choice(self.env.num_actions, p=play_policy[s_key])
 
         while True:
 
@@ -240,8 +247,10 @@ class Characteristics:
             state, reward, terminated, truncated, _ = self.env.step(action)
             ret += reward
 
-            if terminated or truncated: break
-            else: action = np.random.choice(self.env.num_actions, p=play_policy[tuple(state)])
+            if terminated or truncated:
+                break
+            s_key = self._normalize_state_tuple(state)
+            action = np.random.choice(self.env.num_actions, p=play_policy[s_key])
 
         return ret
     

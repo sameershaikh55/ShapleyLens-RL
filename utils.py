@@ -15,7 +15,7 @@ def train(agent, env, num_steps):
         # Usual RL, choose action, execute, update
         action = agent.choose_action(state, info)
         new_state, reward, terminated, truncated, info = env.step(action)
-        agent.update(state, action, new_state, reward, terminated or truncated, info)
+        agent.update(state, action, reward, new_state, terminated or truncated, info)
         state = new_state
 
         if terminated or truncated: state, info = env.reset()
@@ -42,6 +42,29 @@ def find_states_taxi(agent, env, states_to_explain):
         if terminated or truncated: state, info = env.reset()
 
     return instances
+
+
+def find_states_battleship(agent, env, states_to_explain, max_steps=1_000_000):
+    """
+    Speichert Environment-Kopien für erklärte Zustände (Spieler-Raster).
+    Nur für Battleship (verstecktes gegnerisches Raster pro Instanz).
+    """
+    instances = {}
+    state, info = env.reset()
+
+    for _ in tqdm_label(range(int(max_steps)), "Finding Battleship states"):
+        if (states_to_explain == state).all(axis=1).any():
+            if tuple(state) not in instances:
+                instances[tuple(state)] = copy.deepcopy(env)
+        if len(instances) >= len(states_to_explain):
+            break
+        action = agent.choose_action(state, info)
+        state, _, terminated, truncated, info = env.step(action)
+        if terminated or truncated:
+            state, info = env.reset()
+
+    return instances
+
 
 def find_states_minesweeper(agent, env, states_to_explain, num_steps):
     """

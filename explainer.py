@@ -1,14 +1,19 @@
 import argparse
 
+import numpy as np
+
 from shapley import Shapley
 from utopia_payoff import UtopiaPayoff
 from gately import Gately
 from banzhaf import Banzhaf
 from nucleolus import Nucleolus
 from tau import TauValue
+from characteristics import Characteristics
+from utils import F_not_i, tqdm_label
+
 
 class Explainer:
-    def __init__(self, env=None, agent=None, states_to_explain=None, valid_dict=None):
+    def __init__(self, env=None, agent=None, states_to_explain=None, valid_dict=None, instances=None, **kwargs):
         parser = argparse.ArgumentParser()
         parser.add_argument(
             "-e",
@@ -39,6 +44,7 @@ class Explainer:
         self.agent = agent
         self.states_to_explain = states_to_explain
         self.valid_dict = valid_dict
+        self.instances = instances
 
     def set_states(self, states_to_explain):
         if self.args.explainer == "shapley":
@@ -75,24 +81,84 @@ class Explainer:
 
         return local, policy, value_function
     
-    def compute_state_dist(self, sample_size=1e6):
-        """Compute the state distribution by sampling from the environment."""
-        self.state_dist = sample_size
-    
+    def compute_state_dist(self, sample_size=1e6, agent=None, env=None):
+        """Approximiert die Zustandsverteilung (wie utils.get_state_dist)."""
+        from utils import get_state_dist
+
+        ag = agent or self.agent
+        ev = env or self.env
+        if ag is None or ev is None:
+            raise ValueError("compute_state_dist: agent und env müssen am Explainer gesetzt oder übergeben sein.")
+        self.state_dist = get_state_dist(ag, ev, int(sample_size))
+        return self.state_dist
+
     def compute_pi_Cs(self, valid_dict=None):
-        """Compute policy characteristic functions."""
-        self.pi_Cs = {}
-    
+        """Compute policy characteristic functions pi_C for all coalitions C."""
+        if self.agent is None or self.env is None or self.states_to_explain is None:
+            self.pi_Cs = {}
+            return self.pi_Cs
+        if getattr(self, "state_dist", None) is None:
+            raise ValueError("explainer.state_dist fehlt: zuerst get_state_dist(...) zuweisen.")
+        F = np.arange(self.env.state_dim)
+        self.pi_Cs = {
+            tuple(C): self.agent.get_pi_C(C, self.state_dist, self.states_to_explain)
+            for C in tqdm_label(F_not_i(F), "Calculating all pi_C")
+        }
+        return self.pi_Cs
+
     def compute_v_Cs(self, valid_dict=None):
-        """Compute value characteristic functions."""
-        self.v_Cs = {}
-    
-    def compute_characteristics(self, characteristic_modes, num_rolls=1, multi_process=False, num_p=1, valid_dict=None):
-        """Compute characteristics for each mode."""
-        characteristics = {}
-        for mode in characteristic_modes:
-            characteristics[mode] = {}
-        return characteristics
+        """Compute partially observed value tables v_C for all coalitions C."""
+        if self.agent is None or self.env is None or self.states_to_explain is None:
+            self.v_Cs = {}
+            return self.v_Cs
+        if getattr(self, "state_dist", None) is None:
+            raise ValueError("explainer.state_dist fehlt: zuerst get_state_dist(...) zuweisen.")
+        if not hasattr(self.agent, "value_table"):
+            raise ValueError("agent.value_table fehlt: zuerst agent.get_value_table() aufrufen.")
+        F = np.arange(self.env.state_dim)
+        self.v_Cs = {
+            tuple(C): self.agent.get_v_C(C, self.state_dist, self.states_to_explain)
+            for C in tqdm_label(F_not_i(F), "Calculating all v_C")
+        }
+        return self.v_Cs
+
+    def compute_characteristics(
+        self, characteristic_modes, num_rolls=1, multi_process=False, num_p=1, valid_dict=None
+    ):
+        """Compute characteristic values for each requested mode."""
+        if self.env is None or self.states_to_explain is None:
+            return {mode: {} for mode in characteristic_modes}
+        vd = valid_dict if valid_dict is not None else self.valid_dict
+        ch = Characteristics(self.env, self.states_to_explain, instances=self.instances)
+        num_rolls = int(num_rolls)
+        out = {mode: {} for mode in characteristic_modes}
+
+        if "local_sverl" in characteristic_modes:
+            out["local_sverl"] = ch.local_sverl_C_values(
+                num_rolls, self.pi_Cs, multi_process=multi_process, num_p=num_p
+            )
+        if "global_sverl" in characteristic_modes:
+            out["global_sverl"] = ch.global_sverl_C_values(
+                num_rolls, self.pi_Cs, multi_process=multi_process, num_p=num_p
+            )
+        if "fast_local_sverl" in characteristic_modes:
+            out["fast_local_sverl"] = ch.fast_local_sverl_C_values(
+                self.pi_Cs,
+                num_rolls=num_rolls,
+                valid_dict=vd,
+                multi_process=multi_process,
+                num_p=num_p,
+            )
+        if "shapley_on_policy" in characteristic_modes:
+            out["shapley_on_policy"] = ch.shapley_on_policy(
+                self.pi_Cs, multi_process=multi_process, num_p=num_p
+            )
+        if "shapley_on_value" in characteristic_modes:
+            out["shapley_on_value"] = ch.shapley_on_value(
+                self.v_Cs, multi_process=multi_process, num_p=num_p
+            )
+
+        return out
     
     def run_values(self, characteristics, methods=('shapley', 'banzhaf', 'nucleolus'), normalized=True):
         """
