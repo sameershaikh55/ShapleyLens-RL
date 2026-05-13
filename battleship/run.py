@@ -13,6 +13,89 @@ from q_agent_1 import Agent as ShapleyAgent
 from q_agent_2 import Agent as TrainAgent
 from utils import find_states_battleship, train
 
+WIDTH = 78
+
+METHOD_ORDER = ("shapley", "banzhaf", "nucleolus", "utopia-payoff", "gately", "tau")
+METHOD_TITLES = {
+    "shapley": "Shapley",
+    "banzhaf": "Banzhaf (normiert, / 2^(n-1))",
+    "nucleolus": "Nucleolus",
+    "utopia-payoff": "Utopia-Payoff",
+    "gately": "Gately",
+    "tau": "Tau-Wert",
+}
+
+
+def _state_short(key, max_show=14):
+    t = tuple(float(x) for x in key)
+    if len(t) <= max_show:
+        return "(" + ", ".join(f"{x:.0f}" for x in t) + ")"
+    return f"({len(t)} Zellen, min={min(t):.0f}, max={max(t):.0f})"
+
+
+def _print_state_block(state_key, per_feature_list, decimals=5):
+    print(f"\n  Zustand  {_state_short(state_key)}")
+    n_feat = len(per_feature_list)
+    action_header = None
+    rows_out = []
+    for j in range(n_feat):
+        v = per_feature_list[j]
+        a = np.asarray(v, dtype=float).ravel()
+        if a.size == 1:
+            rows_out.append(f"    {j:3d}     {float(a[0]):.{decimals}f}")
+        else:
+            if action_header is None:
+                action_header = "  ".join(f"a{k:>6}" for k in range(a.size))
+            parts = "  ".join(f"{float(x):{decimals + 3}.{decimals}f}" for x in a)
+            rows_out.append(f"    {j:3d}     {parts}")
+    if action_header is not None:
+        print(f"    {'feat':>4}  {action_header}")
+        print("    " + "-" * (len(action_header) + 6))
+    else:
+        print(f"    {'feat':>4}  {'Wert':>{decimals + 3}}")
+        print("    " + "-" * (decimals + 10))
+    for line in rows_out:
+        print(line)
+
+
+def print_explanation_report(results, banzhaf_raw, char_modes, method_errors):
+    """Übersichtliche Terminal-Darstellung für alle Erklärwerte."""
+    line = "=" * WIDTH
+    print("\n" + line)
+    print(" Explainer-Demo (3x3): Shapley, Banzhaf, Nucleolus, Utopia, Gately, Tau")
+    print(line)
+
+    for char_name in char_modes:
+        print("\n" + "-" * WIDTH)
+        print(f" Charakteristik:  {char_name}")
+        print("-" * WIDTH)
+
+        for m in METHOD_ORDER:
+            title = METHOD_TITLES[m]
+            block = results.get(m) or {}
+            vals = block.get(char_name) if isinstance(block, dict) else None
+            if m in method_errors:
+                print(f"\n  [{title}]  -  übersprungen: {method_errors[m]}")
+                continue
+            if not vals:
+                print(f"\n  [{title}]  -  (keine Daten)")
+                continue
+            print(f"\n  > {title}")
+            print("  " + "-" * (WIDTH - 4))
+            for sk in sorted(vals.keys(), key=lambda k: (len(k), str(k))):
+                _print_state_block(sk, vals[sk])
+
+        br = (banzhaf_raw or {}).get(char_name)
+        if br and "banzhaf_raw" not in method_errors:
+            print(f"\n  > Banzhaf (roh, ohne / 2^(n-1))")
+            print("  " + "-" * (WIDTH - 4))
+            for sk in sorted(br.keys(), key=lambda k: (len(k), str(k))):
+                _print_state_block(sk, br[sk])
+        elif "banzhaf_raw" in method_errors:
+            print(f"\n  [Banzhaf roh]  -  übersprungen: {method_errors['banzhaf_raw']}")
+
+    print("\n" + line + "\n")
+
 
 def render_pretty(state, rows, cols):
     """Darstellung: . unbekannt, X Treffer, o Fehlschuss."""
@@ -50,8 +133,7 @@ def collect_sample_states(env, agent, n_episodes=200, max_states=4):
 
 def run_explainer_demo():
     """
-    Kleines Raster (3x3): Shapley/Banzhaf; Ausgabe nur in *.pkl unter battleship/
-    (keine großen Dict-Ausdrucke im Terminal).
+    Kleines Raster (3x3): Shapley, Banzhaf, Nucleolus, Utopia, Gately, Tau - tabellarisch + *.pkl.
     """
     demo_env = Battleship(rows=3, cols=3, ship_sizes=[2, 1, 1], seed=0)
     demo_agent = TrainAgent(demo_env.state_dim, demo_env.num_actions)
@@ -78,7 +160,26 @@ def run_explainer_demo():
     characteristics = explainer.compute_characteristics(
         modes, num_rolls=1, multi_process=False, num_p=1
     )
-    results = explainer.run_values(characteristics, methods=("shapley", "banzhaf"), normalized=True)
+    method_errors = {}
+    results = {}
+    for m in METHOD_ORDER:
+        try:
+            results[m] = explainer.run_values(
+                characteristics, methods=(m,), normalized=True
+            ).get(m, {})
+        except Exception as exc:
+            method_errors[m] = str(exc)
+            results[m] = {}
+
+    banzhaf_raw = {}
+    try:
+        banzhaf_raw = explainer.run_values(
+            characteristics, methods=("banzhaf",), normalized=False
+        ).get("banzhaf", {})
+    except Exception as exc:
+        method_errors["banzhaf_raw"] = str(exc)
+
+    print_explanation_report(results, banzhaf_raw, modes, method_errors)
 
     out_dir = os.path.dirname(os.path.abspath(__file__))
     for method, method_results in results.items():
@@ -86,6 +187,10 @@ def run_explainer_demo():
             path = os.path.join(out_dir, f"battleship_demo_{method}_{name}.pkl")
             with open(path, "wb") as f:
                 pickle.dump(values, f)
+    for name, values in banzhaf_raw.items():
+        path = os.path.join(out_dir, f"battleship_demo_banzhaf_unnormalized_{name}.pkl")
+        with open(path, "wb") as f:
+            pickle.dump(values, f)
 
 
 if __name__ == "__main__":
@@ -137,6 +242,5 @@ if __name__ == "__main__":
         print("Gewonnen.")
     else:
         print("Verloren oder abgebrochen.")
-    print(f"Treffer: {env.hits} | Schritte: {env.steps}")
 
     run_explainer_demo()
