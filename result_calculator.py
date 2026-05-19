@@ -437,6 +437,8 @@ class ResultCalculator:
         """Set very small floating-point values to exactly zero."""
         arr = np.asarray(value, dtype=float).copy()
         arr[np.abs(arr) < eps] = 0.0
+        arr = np.round(arr, self.digits)
+        
         if arr.ndim == 0:
             return float(arr)
         return arr
@@ -465,14 +467,22 @@ class ResultCalculator:
                 self.normalize_state(k) if isinstance(k, tuple) else k: self.pythonify(v)
                 for k, v in obj.items()
             }
+
         if isinstance(obj, list):
             return [self.pythonify(v) for v in obj]
+
         if isinstance(obj, tuple):
             return tuple(self.pythonify(v) for v in obj)
+
         if isinstance(obj, np.ndarray):
             return self.clean_small_values(obj).tolist()
+
         if isinstance(obj, (np.integer, np.floating)):
             return self.clean_small_values(obj)
+
+        if isinstance(obj, float):
+            return self.clean_small_values(obj)
+
         return obj
 
     def jsonify(self, obj: Any) -> Any:
@@ -482,12 +492,22 @@ class ResultCalculator:
                 self.format_state(k) if isinstance(k, tuple) else str(k): self.jsonify(v)
                 for k, v in obj.items()
             }
-        if isinstance(obj, (list, tuple)):
+
+        if isinstance(obj, list):
             return [self.jsonify(v) for v in obj]
+
+        if isinstance(obj, tuple):
+            return [self.jsonify(v) for v in obj]
+
         if isinstance(obj, np.ndarray):
-            return obj.tolist()
+            return self.clean_small_values(obj).tolist()
+
         if isinstance(obj, (np.integer, np.floating)):
-            return obj.item()
+            return self.clean_small_values(obj)
+
+        if isinstance(obj, float):
+            return self.clean_small_values(obj)
+
         return obj
 
     def safe_filename(self, title: str, file_format: str) -> str:

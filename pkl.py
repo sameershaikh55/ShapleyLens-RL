@@ -22,6 +22,6 @@ def load_pkl(path):
 if __name__ == "__main__":
     # Example:
     # path =  "tau_local.pkl"
-    path = r"data\value_comparison.pkl"
+    path = r"data\results.pkl"
 
     data = load_pkl(path)

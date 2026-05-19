@@ -69,7 +69,6 @@ if __name__ == "__main__":
     # ------------------------------------------------- ANALYZE RESULTS
     analyzer = ResultAnalyzer(result)
 
-    #analyzer.print_value_comparison(left_value="tau", right_value="shapley")
 
     analyzer.save_pickle()
     analyzer.save_json()
@@ -80,7 +79,7 @@ if __name__ == "__main__":
     analyzer.save_value_comparison_csv(left_value="tau", right_value="shapley")
 
     # ------------------------------------------------- VISUALIZE RESULTS
-    visualizer = ResultVisualizer(analyzer.results)
+    visualizer = ResultVisualizer(result)
 
     visualizer.plot_heatmaps()
     visualizer.plot_difference_heatmaps(left_value="tau", right_value="shapley")

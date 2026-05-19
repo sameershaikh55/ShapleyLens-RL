@@ -66,18 +66,17 @@ if __name__ == "__main__":
     # ------------------------------------------------- ANALYZE RESULTS
     analyzer = ResultAnalyzer(result)
 
-    analyzer.print_all()
-    analyzer.print_summary()
-    analyzer.print_per_state_summary()
-    analyzer.print_summary_across_values()
 
     analyzer.save_pickle()
     analyzer.save_json()
     analyzer.save_csv()
     analyzer.save_summary_csv()
 
+    analyzer.save_value_comparison_pickle(left_value="tau", right_value="shapley")
+    analyzer.save_value_comparison_csv(left_value="tau", right_value="shapley")
+
     # ------------------------------------------------- VISUALIZE RESULTS
-    visualizer = ResultVisualizer(analyzer.results)
+    visualizer = ResultVisualizer(result)
 
     visualizer.plot_heatmaps()
     visualizer.plot_difference_heatmaps(left_value="tau", right_value="shapley")
