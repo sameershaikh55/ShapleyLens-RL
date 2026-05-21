@@ -1,4 +1,5 @@
 import copy
+
 import numpy as np
 
 
@@ -10,7 +11,7 @@ class Battleship:
 
     NUM_ROWS = 5
     NUM_COLS = 8
-    NUM_FEATURES = NUM_ROWS * NUM_COLS  # 40
+    NUM_FEATURES = NUM_ROWS * NUM_COLS
 
     def __init__(self, rows=None, cols=None, ship_sizes=None, seed=None):
         rows = self.NUM_ROWS if rows is None else rows
@@ -68,8 +69,8 @@ class Battleship:
     def get_valid_actions(self):
         return np.where(self.player_grid.flatten() == 0)[0]
 
-    def _info(self):
-        return {"valid_actions": self.get_valid_actions(), "result": None}
+    def _info(self, result=None):
+        return {"valid_actions": self.get_valid_actions(), "result": result}
 
     def reset(self, seed=None, options=None):
         if seed is not None:
@@ -117,7 +118,7 @@ class Battleship:
             result = "loss"
 
         obs = self.player_grid.flatten().astype(np.float64)
-        info = {"valid_actions": self.get_valid_actions(), "result": result}
+        info = self._info(result=result)
         return obs, reward, terminated, truncated, info
 
     def __deepcopy__(self, memo):

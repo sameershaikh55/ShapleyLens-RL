@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from battleship import Battleship
+from battleship_gym import BattleshipEnv
 from explainer import Explainer
 from q_agent_1 import Agent as ShapleyAgent
 from q_agent_2 import Agent as TrainAgent
@@ -135,7 +135,7 @@ def run_explainer_demo():
     """
     Kleines Raster (3x3): Shapley, Banzhaf, Nucleolus, Utopia, Gately, Tau - tabellarisch + *.pkl.
     """
-    demo_env = Battleship(rows=3, cols=3, ship_sizes=[2, 1, 1], seed=0)
+    demo_env = BattleshipEnv(rows=3, cols=3, ship_sizes=[2, 1, 1], seed=0, render_mode=None)
     demo_agent = TrainAgent(demo_env.state_dim, demo_env.num_actions)
     train(demo_agent, demo_env, int(5e4))
 
@@ -194,10 +194,10 @@ def run_explainer_demo():
 
 
 if __name__ == "__main__":
-    assert Battleship.NUM_FEATURES == 40
+    assert BattleshipEnv.NUM_FEATURES == 40
 
-    env = Battleship()
-    assert env.state_dim == Battleship.NUM_FEATURES
+    env = BattleshipEnv(render_mode="human")
+    assert env.state_dim == BattleshipEnv.NUM_FEATURES
 
     agent = TrainAgent(env.state_dim, env.num_actions)
 
