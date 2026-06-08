@@ -133,9 +133,13 @@ def collect_sample_states(env, agent, n_episodes=200, max_states=4):
 
 def run_explainer_demo():
     """
-    Kleines Raster (3x3): Shapley, Banzhaf, Nucleolus, Utopia, Gately, Tau - tabellarisch + *.pkl.
+    Kleines Raster (3x3): Shapley, Banzhaf, Nucleolus, Utopia, Gately, Tau.
+
+    Nutzt die adaptive run_values-Pipeline: Exakt vs. MC wird zur Laufzeit
+    entschieden (kein fester Feature-Schwellenwert).
+    Auf 3x3 = 9 Features wird automatisch der exakte Pfad gewählt.
     """
-    demo_env = BattleshipEnv(rows=3, cols=3, ship_sizes=[2, 1, 1], seed=0, render_mode=None)
+    demo_env = BattleshipEnv(rows=5, cols=8, ship_sizes=[5, 2, 1, 1], seed=0, render_mode=None)
     demo_agent = TrainAgent(demo_env.state_dim, demo_env.num_actions)
     train(demo_agent, demo_env, int(5e4))
 
@@ -153,33 +157,33 @@ def run_explainer_demo():
 
     explainer = Explainer(demo_env, sv, states_to_explain, instances=instances)
     explainer.compute_state_dist(sample_size=50_000)
-    explainer.compute_pi_Cs()
-    explainer.compute_v_Cs()
 
-    modes = ["shapley_on_policy", "shapley_on_value"]
-    characteristics = explainer.compute_characteristics(
-        modes, num_rolls=1, multi_process=False, num_p=1
+    # Adaptive path: plan_computation decides exakt vs. MC at runtime.
+    # For 3x3 (9 features) this will automatically choose the exact path.
+    adaptive_results = explainer.run_values(
+        methods=list(METHOD_ORDER),
+        normalized=True,
+        characteristic_mode="shapley_on_value",
     )
-    method_errors = {}
-    results = {}
-    for m in METHOD_ORDER:
-        try:
-            results[m] = explainer.run_values(
-                characteristics, methods=(m,), normalized=True
-            ).get(m, {})
-        except Exception as exc:
-            method_errors[m] = str(exc)
-            results[m] = {}
+    meta = adaptive_results.pop("_meta", {})
+    method_errors = meta.get("method_errors", {})
 
+    char_mode = meta.get("characteristic_mode", "shapley_on_value")
+    results = {m: {char_mode: v[char_mode]} if char_mode in v else v
+               for m, v in adaptive_results.items()}
+
+    # Separate unnormalised Banzhaf via legacy path (re-uses already computed v_Cs)
     banzhaf_raw = {}
-    try:
-        banzhaf_raw = explainer.run_values(
-            characteristics, methods=("banzhaf",), normalized=False
-        ).get("banzhaf", {})
-    except Exception as exc:
-        method_errors["banzhaf_raw"] = str(exc)
+    if getattr(explainer, "v_Cs", None):
+        char_values = {char_mode: {C: explainer.v_Cs[C] for C in explainer.v_Cs}}
+        try:
+            banzhaf_raw = explainer.run_values(
+                characteristics=char_values, methods=("banzhaf",), normalized=False
+            ).get("banzhaf", {})
+        except Exception as exc:
+            method_errors["banzhaf_raw"] = str(exc)
 
-    print_explanation_report(results, banzhaf_raw, modes, method_errors)
+    print_explanation_report(results, banzhaf_raw, [char_mode], method_errors)
 
     out_dir = os.path.dirname(os.path.abspath(__file__))
     for method, method_results in results.items():

@@ -138,30 +138,46 @@ class Characteristics:
 
 # --------------------------------------------------------------------- Calculating a generic characteristic
 
-    def get_all_C_values(self, get_C_values, multi_process=False, num_p=1):
+    def get_all_C_values(self, get_C_values, multi_process=False, num_p=1, coalitions=None):
         """
-        Calculates all characteristic values for a given characteristic function.
-        Multi or single processing. 
-        """
-        
-        if multi_process: 
+        Calculates characteristic values for a given characteristic function.
 
-            characteristic_values = Manager().dict()
+        Args:
+            get_C_values:  Function that computes the characteristic value for one coalition.
+            multi_process: Whether to use multiprocessing.
+            num_p:         Number of parallel processes.
+            coalitions:    Optional iterable of coalition tuples to restrict computation to.
+                           None → all 2^n coalitions (original behaviour).
+        """
+        if coalitions is not None:
+            all_C = sorted(coalitions, key=len)
+        else:
             all_C = F_not_i(self.F)
 
-            for r in tqdm_label(range(int(np.ceil(len(all_C) / num_p))), 'Calculating Characteristics'):
+        if multi_process:
+            characteristic_values = Manager().dict()
 
-                processes = [Process(target=self.worker, args=(C, characteristic_values, get_C_values)) for C in all_C[r * num_p : (r + 1) * num_p]]
-
-                for p in processes:    
+            for r in tqdm_label(
+                range(int(np.ceil(len(all_C) / num_p))), "Calculating Characteristics"
+            ):
+                processes = [
+                    Process(
+                        target=self.worker,
+                        args=(C, characteristic_values, get_C_values),
+                    )
+                    for C in all_C[r * num_p : (r + 1) * num_p]
+                ]
+                for p in processes:
                     p.start()
-
                 for p in processes:
                     p.join()
 
             return dict(characteristic_values)
-            
-        else: return {tuple(C): get_C_values(C) for C in tqdm_label(F_not_i(self.F), 'Calculating Characteristics')}
+
+        return {
+            tuple(C): get_C_values(C)
+            for C in tqdm_label(all_C, "Calculating Characteristics")
+        }
     
     def worker(self, C, characteristic_values, get_C_values): characteristic_values[tuple(C)] = get_C_values(C)
 

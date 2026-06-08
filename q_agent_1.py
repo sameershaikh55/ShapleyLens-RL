@@ -116,7 +116,7 @@ class Agent:
         mask_all_states = mask_state(all_states, self.state_dim, C)
 
         state_dist_full = np.array([state_dist.get(k, 0.0) for k in policy_keys]) + 1e-16
-        values = np.array([self.value_table[k] for k in policy_keys])
+        values = np.array([self.value_table.get(k, 0.0) for k in policy_keys])
 
         v_C = {}
         temp_v_C = {}
