@@ -15,7 +15,7 @@ def train(agent, env, num_steps):
         # Usual RL, choose action, execute, update
         action = agent.choose_action(state, info)
         new_state, reward, terminated, truncated, info = env.step(action)
-        agent.update(state, action, reward, new_state, terminated or truncated, info)
+        agent.update(state, action, new_state, reward, terminated or truncated, info)
         state = new_state
 
         if terminated or truncated: state, info = env.reset()

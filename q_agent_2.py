@@ -79,7 +79,7 @@ class Agent:
     # -------------------------------------------------
     # Q-Learning Update
     # -------------------------------------------------
-    def update(self, state, action, reward, new_state, done, info):
+    def update(self, state, action, new_state, reward, done, info):
         """
         Aktualisiert die Q-Tabelle gemäß der Q-Learning Formel.
         """

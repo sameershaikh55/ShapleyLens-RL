@@ -217,7 +217,7 @@ if __name__ == "__main__":
             action = agent.choose_action(state, info)
             next_state, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
-            agent.update(state, action, reward, next_state, done, info)
+            agent.update(state, action, next_state, reward, done, info)
             state = next_state
             total_reward += reward
         rewards_history.append(total_reward)
