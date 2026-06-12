@@ -51,6 +51,8 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
+plots/
+data/
 .pytest_cache/
 cover/
 

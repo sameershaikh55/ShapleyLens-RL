@@ -5,11 +5,12 @@ from tic_tac_toe import TTT
 from utils import train, get_state_dist, F_not_i, tqdm_label
 from characteristics import Characteristics
 import numpy as np
-
-from explainer import Explainer
+from shapley import Shapley
+from tau import TauValue
+from result_analyzer import ResultAnalyzer
+from result_visualizer import ResultVisualizer
 
 if __name__ == "__main__":
-    explainer = Explainer()
 
     env = TTT()
     agent = Agent(env.state_dim, env.num_actions, epsilon=0.05, gamma=1, alpha=0.2)

@@ -77,8 +77,10 @@ if __name__ == '__main__':
     shapley_on_policy_characteristics = characteristic_values['shapley_on_policy']
     shapley_on_value_characteristics = characteristic_values['shapley_on_value']
 
+    result={}
     # ------------------------------------------------- SHAPLEY VALUES
     shapley = Shapley(states_to_explain)
+<<<<<<< HEAD
     for characteristics, filename in zip([local_sverl_characteristics, 
                                           shapley_on_policy_characteristics, 
                                           shapley_on_value_characteristics], ['local', 'policy', 'value_function']):
@@ -135,3 +137,43 @@ if __name__ == '__main__':
 
         import pickle
         with open(f'nucleolus_{filename}.pkl', 'wb') as file: pickle.dump(nucleolus_values, file)
+=======
+    result["shapley"] = {}
+    for characteristics, filename in zip([local_sverl_characteristics, 
+                                        shapley_on_policy_characteristics, 
+                                        shapley_on_value_characteristics], ['local', 'global', 'policy', 'value_function']):
+        
+        shapley_values = shapley.run(characteristics)
+        result["shapley"][filename] = shapley_values
+
+    
+    # ------------------------------------------------- TAU VALUES
+    tau = TauValue(states_to_explain)
+    result["tau"] = {}
+    for characteristics, filename in zip([local_sverl_characteristics, 
+                                        shapley_on_policy_characteristics, 
+                                        shapley_on_value_characteristics], ['local', 'global', 'policy', 'value_function']):
+        
+        tau_values = tau.run(characteristics)
+        result["tau"][filename] = tau_values
+
+
+    # ------------------------------------------------- ANALYZE RESULTS
+    analyzer = ResultAnalyzer(result)
+
+
+    analyzer.save_pickle()
+    analyzer.save_json()
+    analyzer.save_csv()
+    analyzer.save_summary_csv()
+
+    analyzer.save_value_comparison_pickle(left_value="tau", right_value="shapley")
+    analyzer.save_value_comparison_csv(left_value="tau", right_value="shapley")
+
+    # ------------------------------------------------- VISUALIZE RESULTS
+    visualizer = ResultVisualizer(result)
+
+    visualizer.plot_heatmaps()
+    visualizer.plot_difference_heatmaps(left_value="tau", right_value="shapley")
+    visualizer.plot_value_comparison_bars()
+>>>>>>> result
