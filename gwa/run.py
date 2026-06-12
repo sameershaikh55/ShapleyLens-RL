@@ -9,6 +9,27 @@ from gwa import Grid
 from utils import train
 from explainer import Explainer
 
+def gwa_init():
+    env = Grid()
+    agent = Agent(env.state_dim, env.num_actions, epsilon=1, gamma=1, alpha=0.2)
+    states_to_explain = np.array([[0, 0], [0, 1], [1, 0], [1, 1]]) # Explaining all states.
+
+def gwa_run(env=None, agent=None, states_to_explain=None):
+    train(agent, env, 1e7)
+
+    # ------------------------------------------------- GET AGENT'S POLICY
+    agent.get_policy()
+
+    # ------------------------------------------------- EXPLAINER
+    explainer = Explainer(env, agent, states_to_explain)
+    explainer.compute_state_dist(sample_size=1e7)
+    explainer.compute_pi_Cs()
+    explainer.compute_v_Cs()
+    characteristic_modes = ['local_sverl', 'global_sverl', 'shapley_on_policy', 'shapley_on_value']
+    characteristics = explainer.compute_characteristics(characteristic_modes, num_rolls=1e6, multi_process=True, num_p=5)
+    
+    results = explainer.run_values(characteristics, methods=('shapley', 'banzhaf', 'nucleolus'), normalized=True)
+
 if __name__ == '__main__':
     env = Grid()
     agent = Agent(env.state_dim, env.num_actions, epsilon=1, gamma=1, alpha=0.2)
@@ -25,7 +46,7 @@ if __name__ == '__main__':
     explainer.compute_state_dist(sample_size=1e7)
     explainer.compute_pi_Cs()
     explainer.compute_v_Cs()
-    characteristic_modes = ['local_sverl', 'global_sverl', 'shapley_on_policy', 'shapley_on_value']
+    characteristic_modes = ['local_sverl', 'shapley_on_policy', 'shapley_on_value'] # global_sverl
     characteristics = explainer.compute_characteristics(
         characteristic_modes, num_rolls=1e6, multi_process=True, num_p=5)
     results = explainer.run_values(characteristics, methods=('shapley', 'banzhaf', 'nucleolus'), normalized=True)
