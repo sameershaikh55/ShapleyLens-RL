@@ -43,6 +43,7 @@ class Agent:
         if np.random.rand() < self.epsilon and exp:
             return np.random.choice(valid_actions)
 
+
         q_values = self.Q_table[state_key][valid_actions]
         return np.random.choice(valid_actions[q_values == q_values.max()])
 
