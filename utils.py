@@ -15,7 +15,7 @@ def train(agent, env, num_steps):
         # Usual RL, choose action, execute, update
         action = agent.choose_action(state, info)
         new_state, reward, terminated, truncated, info = env.step(action)
-        agent.update(state, action, reward, new_state, terminated or truncated, info)
+        agent.update(state, action, new_state, reward, terminated or truncated, info)
         state = new_state
 
         if terminated or truncated: state, info = env.reset()
@@ -92,6 +92,16 @@ def find_states_minesweeper(agent, env, states_to_explain, num_steps):
                              np.array(list(value.values())) / sum(list(value.values())), 
                              len(np.array(list(value.keys())))] for state, value in instances.items()}
 
+def agent_state_key(agent, state):
+    """Normalize state to the same key used in agent Q_table / policy."""
+    if hasattr(agent, '_state_to_key'):
+        return agent._state_to_key(state)
+    if isinstance(state, np.ndarray):
+        return tuple(state)
+    if isinstance(state, tuple):
+        return state
+    return tuple(state)
+
 def get_state_dist(agent, env, sample_size):
     """
     Approximates the limiting state distribution.
@@ -106,9 +116,12 @@ def get_state_dist(agent, env, sample_size):
 
     for _ in tqdm_label(range(int(sample_size)), 'Approximating State Distribution'):
 
-        state_dist[tuple(state)] += 1
-        agent.Q_table[tuple(state)] # To keep number of states in state dist and Q table the same.
-        state, _, terminated, truncated, _ = env.step(np.random.choice(env.num_actions, p=agent.policy[tuple(state)]))
+        state_key = agent_state_key(agent, state)
+        state_dist[state_key] += 1
+        agent.Q_table[state_key] # To keep number of states in state dist and Q table the same.
+        state, _, terminated, truncated, _ = env.step(
+            np.random.choice(env.num_actions, p=agent.policy[state_key])
+        )
 
         if terminated or truncated: state, _ = env.reset()
 

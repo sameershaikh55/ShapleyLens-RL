@@ -269,7 +269,7 @@ class Explainer:
 
         # MC sample count (auto)
         if num_mc_samples is None:
-            num_mc_samples = max(100, n)
+            num_mc_samples = max(35e3, n)
 
         results: dict = {}
         method_errors: dict = {}

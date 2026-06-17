@@ -3,14 +3,12 @@ import sys
 import pickle
 
 import numpy as np
-from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from battleship_gym import BattleshipEnv
 from explainer import Explainer
-from q_agent_1 import Agent as ShapleyAgent
-from q_agent_2 import Agent as TrainAgent
+from q_agent_2 import Agent
 from utils import find_states_battleship, train
 
 WIDTH = 78
@@ -58,11 +56,11 @@ def _print_state_block(state_key, per_feature_list, decimals=5):
         print(line)
 
 
-def print_explanation_report(results, banzhaf_raw, char_modes, method_errors):
+def print_explanation_report(results, banzhaf_raw, char_modes, method_errors, grid_label="Battleship"):
     """Übersichtliche Terminal-Darstellung für alle Erklärwerte."""
     line = "=" * WIDTH
     print("\n" + line)
-    print(" Explainer-Demo (3x3): Shapley, Banzhaf, Nucleolus, Utopia, Gately, Tau")
+    print(f" {grid_label}: Shapley, Banzhaf, Nucleolus, Utopia, Gately, Tau")
     print(line)
 
     for char_name in char_modes:
@@ -131,35 +129,44 @@ def collect_sample_states(env, agent, n_episodes=200, max_states=4):
     return np.array(seen[:max_states], dtype=np.float64) if seen else np.zeros((1, env.state_dim))
 
 
-def run_explainer_demo():
-    """
-    Kleines Raster (3x3): Shapley, Banzhaf, Nucleolus, Utopia, Gately, Tau.
+if __name__ == "__main__":
+    assert BattleshipEnv.NUM_FEATURES == 100
+    assert BattleshipEnv.NUM_ROWS == 10
+    assert BattleshipEnv.NUM_COLS == 10
 
-    Nutzt die adaptive run_values-Pipeline: Exakt vs. MC wird zur Laufzeit
-    entschieden (kein fester Feature-Schwellenwert).
-    Auf 3x3 = 9 Features wird automatisch der exakte Pfad gewählt.
-    """
-    demo_env = BattleshipEnv(rows=5, cols=8, ship_sizes=[5, 2, 1, 1], seed=0, render_mode=None)
-    demo_agent = TrainAgent(demo_env.state_dim, demo_env.num_actions)
-    train(demo_agent, demo_env, int(5e4))
+    env = BattleshipEnv(seed=0, render_mode=None)
+    assert env.state_dim == BattleshipEnv.NUM_FEATURES
+    assert env.state_dim == BattleshipEnv.NUM_ROWS
+    assert env.state_dim == BattleshipEnv.NUM_COLS
 
-    sv = ShapleyAgent(demo_env.state_dim, demo_env.num_actions, epsilon=0.0, gamma=0.95, alpha=0.2)
-    sv.Q_table = demo_agent.Q_table
-    sv.get_policy()
-    sv.get_value_table()
+    agent = Agent(env.state_dim, env.num_actions, epsilon=1.0, gamma=0.95, alpha=0.1)
+    grid_label = f"Battleship ({env.rows}x{env.cols})"
 
-    states_to_explain = collect_sample_states(demo_env, demo_agent, n_episodes=400, max_states=2)
-    instances = find_states_battleship(demo_agent, demo_env, states_to_explain, max_steps=500_000)
+    print(f"Training ({env.rows}x{env.cols} = {env.state_dim} Merkmale)...\n")
+
+    # ------------------------------------------------- TRAIN
+    train(agent, env, int(1e7))
+
+    # ------------------------------------------------- STATES TO EXPLAIN
+    agent.epsilon = 0.0
+    states_to_explain = collect_sample_states(env, agent, n_episodes=400, max_states=2)
+    instances = find_states_battleship(agent, env, states_to_explain, max_steps=500_000)
     if not instances:
-        return
+        print("Keine Battleship-Instanzen gefunden — Explainer wird übersprungen.")
+        sys.exit(1)
     if len(instances) < len(states_to_explain):
-        states_to_explain = np.stack([np.array(k, dtype=np.float64) for k in instances.keys()], axis=0)
+        states_to_explain = np.stack(
+            [np.array(k, dtype=np.float64) for k in instances.keys()], axis=0
+        )
 
-    explainer = Explainer(demo_env, sv, states_to_explain, instances=instances)
-    explainer.compute_state_dist(sample_size=50_000)
+    # ------------------------------------------------- GET AGENT'S POLICY & VALUE TABLE
+    agent.get_policy()
+    agent.get_value_table()
 
-    # Adaptive path: plan_computation decides exakt vs. MC at runtime.
-    # For 3x3 (9 features) this will automatically choose the exact path.
+    # ------------------------------------------------- EXPLAINER
+    explainer = Explainer(env, agent, states_to_explain, instances=instances)
+    explainer.compute_state_dist(sample_size=1e6)
+
     adaptive_results = explainer.run_values(
         methods=list(METHOD_ORDER),
         normalized=True,
@@ -169,66 +176,22 @@ def run_explainer_demo():
     method_errors = meta.get("method_errors", {})
 
     char_mode = meta.get("characteristic_mode", "shapley_on_value")
-    results = {m: {char_mode: v[char_mode]} if char_mode in v else v
-               for m, v in adaptive_results.items()}
+    results = {
+        m: {char_mode: v[char_mode]} if char_mode in v else v
+        for m, v in adaptive_results.items()
+    }
 
-    # Separate unnormalised Banzhaf via legacy path (re-uses already computed v_Cs)
-    banzhaf_raw = {}
-    if getattr(explainer, "v_Cs", None):
-        char_values = {char_mode: {C: explainer.v_Cs[C] for C in explainer.v_Cs}}
-        try:
-            banzhaf_raw = explainer.run_values(
-                characteristics=char_values, methods=("banzhaf",), normalized=False
-            ).get("banzhaf", {})
-        except Exception as exc:
-            method_errors["banzhaf_raw"] = str(exc)
-
-    print_explanation_report(results, banzhaf_raw, [char_mode], method_errors)
+    print_explanation_report(results, {}, [char_mode], method_errors, grid_label=grid_label)
 
     out_dir = os.path.dirname(os.path.abspath(__file__))
     for method, method_results in results.items():
         for name, values in method_results.items():
-            path = os.path.join(out_dir, f"battleship_demo_{method}_{name}.pkl")
+            path = os.path.join(out_dir, f"{method}_{name}.pkl")
             with open(path, "wb") as f:
                 pickle.dump(values, f)
-    for name, values in banzhaf_raw.items():
-        path = os.path.join(out_dir, f"battleship_demo_banzhaf_unnormalized_{name}.pkl")
-        with open(path, "wb") as f:
-            pickle.dump(values, f)
 
-
-if __name__ == "__main__":
-    assert BattleshipEnv.NUM_FEATURES == 40
-
-    env = BattleshipEnv(render_mode="human")
-    assert env.state_dim == BattleshipEnv.NUM_FEATURES
-
-    agent = TrainAgent(env.state_dim, env.num_actions)
-
-    episodes = 5000
-    print("Training (5x8 = 40 Merkmale)...\n")
-
-    rewards_history = []
-    for ep in tqdm(range(episodes), desc="Training", ncols=100):
-        state, info = env.reset()
-        done = False
-        total_reward = 0.0
-        while not done:
-            action = agent.choose_action(state, info)
-            next_state, reward, terminated, truncated, info = env.step(action)
-            done = terminated or truncated
-            agent.update(state, action, reward, next_state, done, info)
-            state = next_state
-            total_reward += reward
-        rewards_history.append(total_reward)
-        if ep % 500 == 0:
-            tqdm.write(
-                f"Episode {ep} | Avg Reward (letzte 100): {np.mean(rewards_history[-100:]):.2f} | "
-                f"Epsilon: {agent.epsilon:.3f}"
-            )
-
+    # ------------------------------------------------- TEST GAME
     print("\nTestspiel (epsilon=0)\n")
-    agent.epsilon = 0.0
     state, info = env.reset()
     done = False
     render_pretty(state, env.rows, env.cols)
@@ -246,5 +209,3 @@ if __name__ == "__main__":
         print("Gewonnen.")
     else:
         print("Verloren oder abgebrochen.")
-
-    run_explainer_demo()
