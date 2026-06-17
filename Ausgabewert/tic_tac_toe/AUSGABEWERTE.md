@@ -40,3 +40,9 @@ Die Ergebnisse zeigen, dass bestimmte Felder – insbesondere (2,0) und (2,2) �
 | `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (2,0) | 0.287 | 0.318 | 0.144 | 0.393 | 0.419 | 0.281 |
 | `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (2,1) | 0.115 | 0.150 | 0.042 | 0.007 | 0.000 | -0.069 |
 | `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (2,2) | 0.295 | 0.329 | 0.492 | 0.389 | 0.415 | 0.277 |
+
+Wichtigste Felder: (2,0) und (2,2) (Gegner-Steine, Drohung unten) → danach (2,1) (Blockfeld). Rest ≈ 0.
+
+Methoden: Shapley ≈ Banzhaf ≈ Nucleolus — gleiches Ranking. Tau/Utopia betonen die Schlüsselfelder stärker. Gately eigene Skala (leere Felder oft negativ).
+
+Warum: Der Kampf läuft um die untere Reihe — wer die Gegner-Ecken und das Blockfeld (2,1) kennt, versteht die Stellung.

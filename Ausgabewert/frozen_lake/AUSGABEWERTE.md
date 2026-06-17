@@ -40,3 +40,7 @@ Im FrozenLake liefern die meisten Methoden Werte nahe null, was darauf hinweist,
 ![frozen_lake](vergleich_gesamt.png)
 
 
+Wichtigste Methode: praktisch nur Gately (kleine Werte ~0.015).
+Shapley, Banzhaf, Nucleolus, Tau, Utopia: überall ≈ 0.
+
+Wichtigstes Feature: row ≈ col — kein klares Ranking im Mittel.

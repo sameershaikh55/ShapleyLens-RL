@@ -174,3 +174,9 @@ In diesem Beispiel zeigen Shapley, Banzhaf und Nucleolus konsistente und ähnlic
 | `(9, 8)` | y | 0.085 | 0.085 | 0.085 | 0.085 | 0.000 | 4.603 |
 | `(9, 9)` | x | 0.713 | 0.713 | 0.713 | 0.713 | 0.907 | 4.760 |
 | `(9, 9)` | y | 0.194 | 0.194 | 0.194 | 0.194 | 0.000 | 4.240 |
+
+Wichtigstes Feature (Mittel): x (Zeile) — 3.31 vs. 1.73 für y.
+
+Methoden: Shapley ≈ Banzhaf ≈ Nucleolus am stabilsten. Tau/Utopia weichen in Einzelzuständen ab. Gately größere Zahlen, anderes Konzept.
+
+Warum: Die Zeile hilft oft mehr bei der Orientierung im großen Gitter — aber stark zustandsabhängig (z. B. (2,3) mit sehr hohen/negativen Werten). Mittelwert ≠ überall gleich; Detailtabelle beachten.

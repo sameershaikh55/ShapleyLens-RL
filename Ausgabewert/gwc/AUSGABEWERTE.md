@@ -26,3 +26,9 @@ Hier haben beide Features Einfluss, wobei y im Durchschnitt wichtiger als x ist.
 | `(1, 2)` | y      | 2.242   | 2.242   | 2.242 |    2.242 | 2.305 | 4.536 |
 | `(0, 2)` | x      | 0.311   | 0.311   | 0.311 |    0.326 | 0.326 | 4.478 |
 | `(0, 2)` | y      | 0.354   | 0.354   | 0.354 |    0.340 | 0.340 | 4.522 |
+
+Wichtigstes Feature (Mittel): y (Spalte) — 1.54 vs. 1.11 für x.
+
+Methoden: Shapley ≈ Banzhaf ≈ Nucleolus ≈ Tau — stabiles Ranking. Utopia leicht anders. Gately größere Zahlen, gleiche Tendenz (y > x).
+
+Warum: Die Spalte entscheidet oft, wie man um die Hindernisse navigiert — besonders deutlich bei (1,2) (y ≈ 2.24, x ≈ 1.17).

@@ -24,3 +24,9 @@ Hier haben die Features echten Einfluss; x ist wichtiger als y. Die meisten Meth
 | `(1, 1)` | y      | 0.090   | 0.090   | 0.090   | 0.090 | 0.000 | 4.000 |
 | `(1, 2)` | x      | 0.082   | 0.082   | 0.082   | 0.082 | 0.000 | 4.500 |
 | `(1, 2)` | y      | 0.082   | 0.082   | 0.082   | 0.082 | 0.000 | 4.500 |
+
+Wichtigstes Feature (Mittel): x (Zeile) — 1.15 vs. 0.51 für y.
+
+Methoden: Shapley ≈ Banzhaf ≈ Nucleolus am stabilsten. Tau ähnlich. Utopia weicht ab (y oft 0). Gately größere Zahlen, gleiche Tendenz (x > y).
+
+Warum: Am Start (0,0) dominiert x (≈ 4.09) — die Zeile bestimmt oft den Weg zum Ziel; das Hindernis macht die Spalte weniger entscheidend.

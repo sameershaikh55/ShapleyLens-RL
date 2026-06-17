@@ -1,8 +1,12 @@
 """
 Ausgabewert-Auswertung: gwa, gwb, gwc, gwd.
 
-Berechnet und vergleicht Ausgabewerte (Shapley, Banzhaf, …) pro Grid World.
-Ergebnisse → Ordner ``Ausgabewert/`` (nicht Teil des RL-Trainings).
+Berechnet Feature-Beiträge (Shapley, Banzhaf, …) für vier Grid Worlds.
+2 Features pro Spiel: x (Zeile) und y (Spalte). Q-Learning-Training, dann
+local SVERL als Charakteristik. Enthält auch Hilfsfunktionen für Tabellen
+und Plots (werden von frozen_lake / tic_tac_toe importiert).
+
+Ergebnisse → Ordner ``Ausgabewert/`` (nicht Teil des RL-Trainings in ``gwa/run.py`` usw.).
 
     python ausgabewert_grid_worlds.py
     python ausgabewert_grid_worlds.py gwa gwb
@@ -33,8 +37,8 @@ from utils import F_not_i, get_state_dist, train, tqdm_label
 import matplotlib.pyplot as plt
 
 OUT = ROOT / "Ausgabewert"
-CHAR = "local_sverl"
-FEATURE_NAMES = ["x", "y"]
+CHAR = "local_sverl"              # Name der Charakteristik in results.pkl
+FEATURE_NAMES = ["x", "y"]        # faktorisierter Zustand in allen Grid Worlds
 METHODS = ("shapley", "banzhaf", "nucleolus", "tau", "utopia", "gately")
 METHOD_LABELS = {
     "shapley": "Shapley",
@@ -45,10 +49,11 @@ METHOD_LABELS = {
     "gately": "Gately",
 }
 
-TRAIN_STEPS = 300_000
-STATE_SAMPLES = 50_000
-NUM_ROLLS = 5_000
+TRAIN_STEPS = 300_000   # Q-Learning-Schritte pro Grid World
+STATE_SAMPLES = 50_000  # Stichproben für Zustandsverteilung p^π(s)
+NUM_ROLLS = 5_000       # Monte-Carlo-Rollouts pro Koalition (local SVERL)
 
+# Pro Spiel: Modul, feste Erklärzustände, ε-Greedy, Kurzbeschreibung
 CONFIGS = {
     "gwa": {
         "grid": ("gwa.gwa", "Grid", []),
@@ -79,6 +84,7 @@ CONFIGS = {
 
 
 def load_grid(name: str, cfg: dict):
+    """Lädt die Grid-World-Umgebung dynamisch aus ``gwa/gwb/gwc/gwd``."""
     mod_name, cls_name, args = cfg["grid"]
     mod = importlib.import_module(mod_name)
     Grid = getattr(mod, cls_name)
@@ -88,11 +94,13 @@ def load_grid(name: str, cfg: dict):
 
 
 def scalar(v) -> float:
+    """Wandelt Ausgabewert (Skalar oder Array) in einen float-Mittelwert um."""
     arr = np.asarray(v, dtype=float)
     return float(arr.item() if arr.ndim == 0 else np.mean(arr))
 
 
 def _state_key(data: dict, state) -> tuple | None:
+    """Sucht den passenden Dictionary-Key für einen Zustand (int/tuple-kompatibel)."""
     st = tuple(int(x) for x in state)
     if st in data:
         return st
@@ -100,10 +108,12 @@ def _state_key(data: dict, state) -> tuple | None:
 
 
 def format_state(state) -> str:
+    """Formatiert Zustand als ``(x, y)`` für Tabellen und Ausgabe."""
     return "(" + ", ".join(str(int(x)) for x in state) + ")"
 
 
 def comparison_table(results: dict, states, feature_names: list[str] | None = None) -> str:
+    """Markdown-Detailtabelle: pro Zustand und Feature alle sechs Methoden."""
     names = feature_names or FEATURE_NAMES
     headers = [METHOD_LABELS[m] for m in METHODS]
     align = "|".join(["--------:"] * len(METHODS))
@@ -147,7 +157,7 @@ def mean_comparison_table(results: dict, states, feature_names: list[str] | None
 
 
 def _mean_matrix(results: dict, states, feature_names: list[str] | None = None) -> np.ndarray:
-    """Shape: (n_features, n_methods) — Mittel über alle Zustände."""
+    """Berechnet Matrix (Features × Methoden) mit Mittelwerten über alle Zustände."""
     names = feature_names or FEATURE_NAMES
     mat = np.zeros((len(names), len(METHODS)))
     for mi, m in enumerate(METHODS):
@@ -166,7 +176,10 @@ def save_summary_plot(
     results: dict, states, out_dir: Path, game_name: str,
     feature_names: list[str] | None = None,
 ) -> None:
-    """Ein Gesamt-Diagramm pro Spiel: Mittelwert über alle Zustände."""
+    """
+    Speichert ``vergleich_gesamt.png``: Balkendiagramm + Heatmap (≤4 Features)
+    oder nur Heatmap bei mehr Features (z. B. wenn von anderen Skripten genutzt).
+    """
     names = feature_names or FEATURE_NAMES
     out_dir.mkdir(parents=True, exist_ok=True)
     mat = _mean_matrix(results, states, names)
@@ -227,23 +240,42 @@ def save_comparison_plots(
     results: dict, states, out_dir: Path, game_name: str,
     feature_names: list[str] | None = None,
 ) -> None:
+    """Alias für ``save_summary_plot`` (ein Diagramm pro Spiel)."""
     save_summary_plot(results, states, out_dir, game_name, feature_names)
 
 
 def run_game(name: str, cfg: dict) -> dict:
+    """
+    Hauptpipeline für ein Grid World (gwa … gwd).
+
+    Schritte:
+      1. Umgebung laden, Q-Learning-Agent trainieren
+      2. Policy π und Wertfunktion V ableiten
+      3. Erklärzustände wählen (fest in cfg oder alle aus state_dist bei gwd)
+      4. Zustandsverteilung p^π(s) schätzen
+      5. Partielle Policies π_C und Werte v_C für alle Feature-Koalitionen
+      6. Local SVERL (Monte-Carlo) → Charakteristikwerte
+      7. Shapley, Banzhaf, Nucleolus, Tau, Utopia, Gately berechnen
+
+    Returns:
+        dict mit ``results`` und ``states``
+    """
     print(f"\n{'='*60}\n  {name.upper()}\n{'='*60}")
     env = load_grid(name, cfg)
     agent = Agent(env.state_dim, env.num_actions, epsilon=cfg["epsilon"], gamma=1, alpha=0.2)
 
+    # Schritt 1–2
     train(agent, env, TRAIN_STEPS)
     agent.get_policy()
     agent.get_value_table()
 
+    # Schritt 3: gwd hat states=None → alle besuchten Zustände erklären
     states = cfg["states"]
     state_dist = get_state_dist(agent, env, STATE_SAMPLES)
     if states is None:
         states = np.unique(np.array(list(state_dist)), axis=0)
 
+    # Schritt 4–5
     F = np.arange(env.state_dim)
     ch = Characteristics(env, states)
     ch.pi_Cs = {
@@ -254,8 +286,11 @@ def run_game(name: str, cfg: dict) -> dict:
         tuple(C): agent.get_v_C(C, state_dist, states)
         for C in tqdm_label(F_not_i(F), f"{name} v_C")
     }
+
+    # Schritt 6
     char_data = ch.local_sverl_C_values(NUM_ROLLS, ch.pi_Cs, multi_process=False, num_p=1)
 
+    # Schritt 7
     calculators = {
         "shapley": Shapley(states),
         "banzhaf": Banzhaf(states, normalized=True),
@@ -275,6 +310,7 @@ def run_game(name: str, cfg: dict) -> dict:
 
 
 def write_game_report(name: str, cfg: dict, data: dict) -> None:
+    """Schreibt ``Ausgabewert/<name>/AUSGABEWERTE.md`` mit Tabellen und Bildverweis."""
     game_dir = OUT / name
     md = [
         f"# {name.upper()} — Ausgabewert-Vergleich\n\n",
@@ -292,6 +328,7 @@ def write_game_report(name: str, cfg: dict, data: dict) -> None:
 
 
 def write_summary(all_data: dict) -> None:
+    """Gesamtbericht ``GRID_WORLDS_AUSGABEWERTE.md`` — alle vier Spiele in einer Datei."""
     parts = [
         "# Ausgabewert-Vergleich — gwa, gwb, gwc, gwd\n\n",
         "Pro Spiel: Ausgabewerte berechnen und **innerhalb des Spiels** vergleichen.\n\n",
@@ -311,6 +348,12 @@ def write_summary(all_data: dict) -> None:
 
 
 def main():
+    """
+    Führt Ausgabewert für gewählte Grid Worlds aus (Standard: alle vier).
+
+    Pro Spiel: ``results.pkl``, ``vergleich_gesamt.png``, ``AUSGABEWERTE.md``.
+    Am Ende: zusammengefasster Bericht ``GRID_WORLDS_AUSGABEWERTE.md``.
+    """
     names = [a for a in sys.argv[1:] if a in CONFIGS] or list(CONFIGS)
     OUT.mkdir(parents=True, exist_ok=True)
     all_data = {}
