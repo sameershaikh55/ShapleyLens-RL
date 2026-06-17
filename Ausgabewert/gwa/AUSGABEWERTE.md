@@ -1,6 +1,7 @@
 # GWA — Ausgabewert-Vergleich
 
 
+Gately ist größer, weil es den Gesamtwert aufteilt und nicht den tatsächlichen Einfluss misst.
 
 ## Gesamtvergleich (Mittel über alle Zustände)
 

@@ -1,6 +1,8 @@
 # GWD — Ausgabewert-Vergleich
 
 
+In diesem Beispiel zeigen Shapley, Banzhaf und Nucleolus konsistente und ähnliche Werte, was auf eine stabile Bewertung der Feature‑Bedeutung hinweist. Dabei ist x im Durchschnitt wichtiger als y, obwohl es zustandsabhängig starke Schwankungen und auch negative Beiträge gibt. Gately vergibt erneut deutlich größere Werte, da es den Gesamtwert verteilt und nicht den tatsächlichen Einfluss widerspiegelt.
+
 ## Gesamtvergleich (Mittel über alle Zustände)
 
 | Feature | Shapley | Banzhaf | Nucleolus | Tau | Utopia | Gately |

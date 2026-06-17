@@ -1,7 +1,8 @@
 # TIC-TAC-TOE — Ausgabewert-Vergleich
 
 
-```
+Die Ergebnisse zeigen, dass bestimmte Felder – insbesondere (2,0) und (2,2) – einen deutlich höheren Einfluss haben, da sie direkt spielentscheidend sind. Shapley, Banzhaf und Nucleolus liefern ähnliche und konsistente Werte, während Tau und Utopia einzelne Features stärker gewichten. Gately zeigt teilweise sogar negative Beiträge, da es die Werte unabhängig von der tatsächlichen Spielsituation verteilt.
+
 0 0 0
 0 1 0
 2 0 2

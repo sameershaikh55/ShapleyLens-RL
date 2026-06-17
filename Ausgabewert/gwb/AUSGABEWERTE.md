@@ -1,6 +1,7 @@
 # GWB — Ausgabewert-Vergleich
 
 
+Hier haben die Features echten Einfluss; x ist wichtiger als y. Die meisten Methoden stimmen überein, Gately und Utopia weichen ab.
 
 ## Gesamtvergleich (Mittel über alle Zustände)
 

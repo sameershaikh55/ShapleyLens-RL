@@ -1,5 +1,7 @@
 # GWC — Ausgabewert-Vergleich
 
+Hier haben beide Features Einfluss, wobei y im Durchschnitt wichtiger als x ist. Die Methoden Shapley, Banzhaf, Nucleolus und Tau stimmen weitgehend überein und zeigen ein stabiles Ranking, während Utopia leicht abweicht und Gately deutlich größere Werte vergibt, da es den Gesamtwert verteilt.
+
 
 ## Gesamtvergleich (Mittel über alle Zustände)
 

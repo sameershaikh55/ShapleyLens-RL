@@ -1,5 +1,7 @@
 # FROZEN LAKE — Ausgabewert-Vergleich
 
+Im FrozenLake liefern die meisten Methoden Werte nahe null, was darauf hinweist, dass einzelne Features isoliert kaum Bedeutung haben und erst ihre Kombination relevant ist; nur die Gately-Methode vergibt kleine, von null abweichende Beiträge.
+
 
 ## Gesamtvergleich (Mittel über alle Zustände)
 
