@@ -1,4 +1,5 @@
 import argparse
+import pickle
 
 import numpy as np
 
@@ -13,6 +14,21 @@ from utopia_payoff import UtopiaPayoff
 from utils import F_not_i, tqdm_label
 
 
+import sys
+sys.path.insert(0, '../')
+from q_agent_2 import Agent
+from tic_tac_toe.tic_tac_toe import TTT
+from taxi.taxi_wrap import FactoredState
+from utils import train, get_state_dist, F_not_i, tqdm_label, value_iteration, find_states_taxi
+from characteristics import Characteristics
+import numpy as np
+
+from result_analyzer import ResultAnalyzer
+from result_visualizer import ResultVisualizer
+
+from tic_tac_toe.tic_tac_toe import TTT
+from tic_tac_toe.run import tic_tac_toe_init, tic_tac_toe_run
+
 class Explainer:
     def __init__(self, env=None, agent=None, states_to_explain=None, valid_dict=None, instances=None, **kwargs):
         parser = argparse.ArgumentParser()
@@ -20,9 +36,17 @@ class Explainer:
             "-e",
             "--explainer",
             type=str,
+            # nargs="+",
             default="shapley",
-            choices=["shapley","utopia-payoff", "gately", "banzhaf", "nucleolus", "tau"],
-            help="Choose explainer",
+            choices=[
+                "shapley",
+                "utopia-payoff",
+                "gately",
+                "banzhaf",
+                "nucleolus",
+                "tau"
+            ],
+            help="Choose one or multiple explainers. Use '-e shapley' or '-e shapley utopia-payoff tau'",
         )
         parser.add_argument(
             "-c",
@@ -36,16 +60,15 @@ class Explainer:
             action="store_true",
             help="Normalize value",
         )
-        # Use parse_known_args to avoid conflicts with other CLI arguments
-        self.args, _ = parser.parse_known_args()
-        self.first_print = True
-        
-        # Store environment and agent info
-        self.env = env
+
+        self.args = parser.parse_args()
+        self.results = {}
+        self.results[self.args.explainer] = {}
         self.agent = agent
-        self.states_to_explain = states_to_explain
-        self.valid_dict = valid_dict
-        self.instances = instances
+        self.env = env
+        # for i in self.args.explainers:
+        #     self.results[self.args.explainers[i]] = {}
+
 
     def set_states(self, states_to_explain):
         if self.args.explainer == "shapley":
@@ -60,27 +83,42 @@ class Explainer:
             self.expl = Nucleolus(states_to_explain)
         elif self.args.explainer == "tau":
             self.expl = TauValue(states_to_explain)
-
-    def run(self, characteristics):            
-        return self.expl.run(characteristics)
     
-    def print(self, explainer_values, characteristic_type):
-        if self.first_print == True:
-            self.first_print = False
-            print(self.args.explainer.replace("_", " ").title() + ":")
-        print(explainer_values)
+    def save(self, char_list, names):
+        for char_data, characteristic_type in zip(char_list, names):
+            if not self.args.cache:
+                with open('{}.cache'.format(characteristic_type), 'wb') as file: pickle.dump(char_data, file)
+    
+    def print(self):
+        # ------------------------------------------------- ANALYZE RESULTS
+        analyzer = ResultAnalyzer(self.results)
 
-    def get_cache(self):
+        analyzer.save_pickle()
+        analyzer.save_json()
+        analyzer.save_csv()
+        analyzer.save_summary_csv()
+
+        analyzer.save_value_comparison_pickle(left_value="shapley", right_value="shapley")
+        analyzer.save_value_comparison_csv(left_value="shapley", right_value="shapley")
+
+        # ------------------------------------------------- VISUALIZE RESULTS
+        visualizer = ResultVisualizer(self.results)
+
+        visualizer.plot_heatmaps()
+        visualizer.plot_difference_heatmaps(left_value="shapley", right_value="shapley")
+        visualizer.plot_value_comparison_bars()
+
+    def get_cache(self, game_loc=None, characteristic_names=None):
         import pickle
 
-        with open("local.cache", "rb") as f:
+        with open(game_loc + "/local.cache", "rb") as f:
             local = pickle.load(f)
-        with open("policy.cache", "rb") as f:
+        with open(game_loc + "/policy.cache", "rb") as f:
             policy = pickle.load(f)
-        with open("value_function.cache", "rb") as f:
+        with open(game_loc + "/value_function.cache", "rb") as f:
             value_function = pickle.load(f)
 
-        return local, policy, value_function
+        return [local, policy, value_function]
     
     def compute_state_dist(self, sample_size=1e6, agent=None, env=None):
         """Approximiert die Zustandsverteilung (wie utils.get_state_dist)."""
@@ -89,17 +127,19 @@ class Explainer:
         ag = agent or self.agent
         ev = env or self.env
         if ag is None or ev is None:
-            raise ValueError("compute_state_dist: agent und env müssen am Explainer gesetzt oder übergeben sein.")
+            raise ValueError("compute_state_dist: agent and environment should have been set in explainer.")
         self.state_dist = get_state_dist(ag, ev, int(sample_size))
         return self.state_dist
+    
+    def get_value_table_for_shapley(self, agent=None, env=None):
+        ag = agent or self.agent
+        ev = env or self.env
+        if ag is None or ev is None:
+            raise ValueError("get_value_table_for_shapley: agent and environment should have been set in explainer.")
+        ag.get_value_table(ev.valid_dict)
 
-    def compute_pi_Cs(self, valid_dict=None, coalitions=None):
-        """Compute policy characteristic functions pi_C.
-
-        Args:
-            coalitions: Optional set/iterable of coalition tuples to compute.
-                        None → all 2^n coalitions (original behaviour).
-        """
+    def compute_pi_Cs(self, valid_dict=None):
+        """Compute policy characteristic functions pi_C for all coalitions C."""
         if self.agent is None or self.env is None or self.states_to_explain is None:
             self.pi_Cs = {}
             return self.pi_Cs
@@ -122,6 +162,7 @@ class Explainer:
             coalitions: Optional set/iterable of coalition tuples to compute.
                         None → all 2^n coalitions (original behaviour).
         """
+
         if self.agent is None or self.env is None or self.states_to_explain is None:
             self.v_Cs = {}
             return self.v_Cs
@@ -373,3 +414,4 @@ class Explainer:
                     expl = TauValue(self.states_to_explain)
                     results[method][char_name] = expl.run(char_values)
         return results
+

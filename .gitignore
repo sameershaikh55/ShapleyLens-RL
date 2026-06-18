@@ -7,7 +7,7 @@ __pycache__/
 *.so
 
 # cache files
-.cache
+*.cache
 
 # Distribution / packaging
 .Python
@@ -51,6 +51,8 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
+plots/
+data/
 .pytest_cache/
 cover/
 
