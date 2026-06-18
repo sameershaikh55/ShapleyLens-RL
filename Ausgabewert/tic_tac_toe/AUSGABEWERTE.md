@@ -1,8 +1,12 @@
 # TIC-TAC-TOE — Ausgabewert-Vergleich
 
+Tic-Tac-Toe vs. MinMax. **9 Features** = Felder (0,0) … (2,2).
 
-Die Ergebnisse zeigen, dass bestimmte Felder – insbesondere (2,0) und (2,2) – einen deutlich höheren Einfluss haben, da sie direkt spielentscheidend sind. Shapley, Banzhaf und Nucleolus liefern ähnliche und konsistente Werte, während Tau und Utopia einzelne Features stärker gewichten. Gately zeigt teilweise sogar negative Beiträge, da es die Werte unabhängig von der tatsächlichen Spielsituation verteilt.
+Charakteristik: **local_sverl** | Train: 100,000 | Rolls: 5,000
 
+**Erklärter Zustand (Brett):**
+
+```
 0 0 0
 0 1 0
 2 0 2
@@ -13,15 +17,15 @@ Die Ergebnisse zeigen, dass bestimmte Felder – insbesondere (2,0) und (2,2) �
 
 | Feature | Shapley | Banzhaf | Nucleolus | Tau | Utopia | Gately |
 |:-------:|--------:|--------:|--------:|--------:|--------:|--------:|
-| (0,0)   | 0.009   | 0.017   | 0.000 | 0.007 | 0.000 | -0.082 |
-| (0,1)   | 0.072   | 0.112   | 0.138 | 0.007 | 0.000 | -0.082 |
-| (0,2)   | 0.005   | 0.011   | 0.000 | 0.007 | 0.000 | -0.082 |
-| (1,0)   | 0.005   | 0.014   | 0.000 | 0.007 | 0.000 | -0.082 |
-| (1,1)   | 0.039   | 0.064   | 0.009 | 0.007 | 0.000 | -0.079 |
-| (1,2)   | 0.007   | 0.016   | 0.009 | 0.007 | 0.000 | -0.082 |
-| (2,0)   | 0.287   | 0.318   | 0.144 | 0.393 | 0.419 | 0.281 |
-| (2,1)   | 0.115   | 0.150   | 0.042 | 0.007 | 0.000 | -0.069 |
-| (2,2)   | 0.295   | 0.329   | 0.492 | 0.389 | 0.415 | 0.277 |
+| (0,0) | -0.013 | -0.019 | 0.000 | -0.024 | 0.000 | -0.101 |
+| (0,1) | 0.050 | 0.077 | 0.023 | -0.024 | 0.000 | -0.100 |
+| (0,2) | 0.040 | 0.057 | 0.044 | -0.024 | 0.000 | -0.100 |
+| (1,0) | -0.006 | -0.005 | 0.014 | -0.024 | 0.000 | -0.100 |
+| (1,1) | 0.093 | 0.131 | 0.058 | -0.024 | 0.000 | -0.098 |
+| (1,2) | -0.002 | 0.001 | 0.000 | -0.024 | 0.000 | -0.100 |
+| (2,0) | 0.293 | 0.291 | 0.196 | 0.509 | 0.423 | 0.347 |
+| (2,1) | 0.097 | 0.122 | 0.023 | -0.024 | 0.000 | -0.085 |
+| (2,2) | 0.286 | 0.284 | 0.480 | 0.495 | 0.414 | 0.338 |
 
 ![ttt](vergleich_gesamt.png)
 
@@ -31,20 +35,12 @@ Die Ergebnisse zeigen, dass bestimmte Felder – insbesondere (2,0) und (2,2) �
 
 | Zustand | Feature | Shapley | Banzhaf | Nucleolus | Tau | Utopia | Gately |
 |:--------|:-------:|--------:|--------:|--------:|--------:|--------:|--------:|
-| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (0,0) | 0.009 | 0.017 | 0.000 | 0.007 | 0.000 | -0.082 |
-| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (0,1) | 0.072 | 0.112 | 0.138 | 0.007 | 0.000 | -0.082 |
-| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (0,2) | 0.005 | 0.011 | 0.000 | 0.007 | 0.000 | -0.082 |
-| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (1,0) | 0.005 | 0.014 | 0.000 | 0.007 | 0.000 | -0.082 |
-| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (1,1) | 0.039 | 0.064 | 0.009 | 0.007 | 0.000 | -0.079 |
-| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (1,2) | 0.007 | 0.016 | 0.009 | 0.007 | 0.000 | -0.082 |
-| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (2,0) | 0.287 | 0.318 | 0.144 | 0.393 | 0.419 | 0.281 |
-| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (2,1) | 0.115 | 0.150 | 0.042 | 0.007 | 0.000 | -0.069 |
-| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (2,2) | 0.295 | 0.329 | 0.492 | 0.389 | 0.415 | 0.277 |
-
-Wichtigste Felder: (2,0) und (2,2) (Gegner-Steine, Drohung unten) → danach (2,1) (Blockfeld). Rest ≈ 0.
-
-Methoden: Shapley ≈ Banzhaf ≈ Nucleolus — gleiches Ranking. Tau/Utopia betonen die Schlüsselfelder stärker. Gately eigene Skala (leere Felder oft negativ).
-
-Warum: Der Kampf läuft um die untere Reihe — wer die Gegner-Ecken und das Blockfeld (2,1) kennt, versteht die Stellung.
-
-Für Tic‑Tac‑Toe ist Shapley die beste Methode, da sie spielentscheidende Felder korrekt identifiziert und konsistente Ergebnisse liefert.
+| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (0,0) | -0.013 | -0.019 | 0.000 | -0.024 | 0.000 | -0.101 |
+| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (0,1) | 0.050 | 0.077 | 0.023 | -0.024 | 0.000 | -0.100 |
+| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (0,2) | 0.040 | 0.057 | 0.044 | -0.024 | 0.000 | -0.100 |
+| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (1,0) | -0.006 | -0.005 | 0.014 | -0.024 | 0.000 | -0.100 |
+| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (1,1) | 0.093 | 0.131 | 0.058 | -0.024 | 0.000 | -0.098 |
+| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (1,2) | -0.002 | 0.001 | 0.000 | -0.024 | 0.000 | -0.100 |
+| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (2,0) | 0.293 | 0.291 | 0.196 | 0.509 | 0.423 | 0.347 |
+| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (2,1) | 0.097 | 0.122 | 0.023 | -0.024 | 0.000 | -0.085 |
+| `(0, 0, 0, 0, 1, 0, 2, 0, 2)` | (2,2) | 0.286 | 0.284 | 0.480 | 0.495 | 0.414 | 0.338 |

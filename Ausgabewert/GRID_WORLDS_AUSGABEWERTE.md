@@ -1,21 +1,113 @@
-# GWD — Ausgabewert-Vergleich
+# Ausgabewert-Vergleich — gwa, gwb, gwc, gwd
 
+Pro Spiel: Ausgabewerte berechnen und **innerhalb des Spiels** vergleichen.
 
-In diesem Beispiel zeigen Shapley, Banzhaf und Nucleolus konsistente und ähnliche Werte, was auf eine stabile Bewertung der Feature‑Bedeutung hinweist. Dabei ist x im Durchschnitt wichtiger als y, obwohl es zustandsabhängig starke Schwankungen und auch negative Beiträge gibt. Gately vergibt erneut deutlich größere Werte, da es den Gesamtwert verteilt und nicht den tatsächlichen Einfluss widerspiegelt.
+## GWA
 
+2×3 Grid, Ziel oben, 4 Zustände.
 
-Gately ist ungeeignet für Explainability, da es den Gesamtwert nur verteilt und nicht den tatsächlichen Einfluss der Features misst
+### Gesamtvergleich
 
-## Gesamtvergleich (Mittel über alle Zustände)
+| Feature | Shapley | Banzhaf | Nucleolus | Tau | Utopia | Gately |
+|:-------:|--------:|--------:|--------:|--------:|--------:|--------:|
+| x | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 4.250 |
+| y | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 4.250 |
+
+![gwa](gwa/vergleich_gesamt.png)
+
+<details><summary>Detailtabelle (alle Zustände)</summary>
+
+| Zustand | Feature | Shapley | Banzhaf | Nucleolus | Tau | Utopia | Gately |
+|:--------|:-------:|--------:|--------:|--------:|--------:|--------:|--------:|
+| `(0, 0)` | x | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 4.000 |
+| `(0, 0)` | y | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 4.000 |
+| `(0, 1)` | x | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 4.500 |
+| `(0, 1)` | y | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 4.500 |
+| `(1, 0)` | x | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 4.000 |
+| `(1, 0)` | y | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 4.000 |
+| `(1, 1)` | x | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 4.500 |
+| `(1, 1)` | y | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 4.500 |
+
+</details>
+
+---
+
+## GWB
+
+2×4 Grid, Hindernis bei (0,1), 4 Zustände.
+
+### Gesamtvergleich
+
+| Feature | Shapley | Banzhaf | Nucleolus | Tau | Utopia | Gately |
+|:-------:|--------:|--------:|--------:|--------:|--------:|--------:|
+| x | 1.147 | 1.147 | 1.147 | 1.107 | 1.571 | 4.065 |
+| y | 0.509 | 0.509 | 0.509 | 0.549 | 0.000 | 3.435 |
+
+![gwb](gwb/vergleich_gesamt.png)
+
+<details><summary>Detailtabelle (alle Zustände)</summary>
+
+| Zustand | Feature | Shapley | Banzhaf | Nucleolus | Tau | Utopia | Gately |
+|:--------|:-------:|--------:|--------:|--------:|--------:|--------:|--------:|
+| `(0, 0)` | x | 4.088 | 4.088 | 4.088 | 4.088 | 6.114 | 4.010 |
+| `(0, 0)` | y | 2.026 | 2.026 | 2.026 | 2.026 | 0.000 | 1.990 |
+| `(1, 0)` | x | 0.329 | 0.329 | 0.329 | 0.169 | 0.169 | 3.752 |
+| `(1, 0)` | y | -0.160 | -0.160 | -0.160 | 0.000 | 0.000 | 3.248 |
+| `(1, 1)` | x | 0.090 | 0.090 | 0.090 | 0.090 | 0.000 | 4.000 |
+| `(1, 1)` | y | 0.090 | 0.090 | 0.090 | 0.090 | 0.000 | 4.000 |
+| `(1, 2)` | x | 0.082 | 0.082 | 0.082 | 0.082 | 0.000 | 4.500 |
+| `(1, 2)` | y | 0.082 | 0.082 | 0.082 | 0.082 | 0.000 | 4.500 |
+
+</details>
+
+---
+
+## GWC
+
+2×4 Grid, zwei Hindernisse, 5 Zustände.
+
+### Gesamtvergleich
+
+| Feature | Shapley | Banzhaf | Nucleolus | Tau | Utopia | Gately |
+|:-------:|--------:|--------:|--------:|--------:|--------:|--------:|
+| x | 1.113 | 1.113 | 1.113 | 1.128 | 1.126 | 3.297 |
+| y | 1.542 | 1.542 | 1.542 | 1.527 | 1.529 | 3.703 |
+
+![gwc](gwc/vergleich_gesamt.png)
+
+<details><summary>Detailtabelle (alle Zustände)</summary>
+
+| Zustand | Feature | Shapley | Banzhaf | Nucleolus | Tau | Utopia | Gately |
+|:--------|:-------:|--------:|--------:|--------:|--------:|--------:|--------:|
+| `(0, 0)` | x | 3.927 | 3.927 | 3.927 | 3.927 | 3.920 | 2.518 |
+| `(0, 0)` | y | 3.943 | 3.943 | 3.943 | 3.943 | 3.951 | 2.482 |
+| `(1, 0)` | x | 0.163 | 0.163 | 0.163 | 0.218 | 0.279 | 2.742 |
+| `(1, 0)` | y | 0.665 | 0.665 | 0.665 | 0.610 | 0.549 | 3.258 |
+| `(1, 1)` | x | -0.005 | -0.005 | -0.005 | 0.000 | 0.000 | 3.255 |
+| `(1, 1)` | y | 0.506 | 0.506 | 0.506 | 0.501 | 0.501 | 3.745 |
+| `(1, 2)` | x | 1.171 | 1.171 | 1.171 | 1.171 | 1.107 | 3.457 |
+| `(1, 2)` | y | 2.242 | 2.242 | 2.242 | 2.242 | 2.305 | 4.543 |
+| `(0, 2)` | x | 0.311 | 0.311 | 0.311 | 0.326 | 0.326 | 4.514 |
+| `(0, 2)` | y | 0.354 | 0.354 | 0.354 | 0.340 | 0.340 | 4.486 |
+
+</details>
+
+---
+
+## GWD
+
+10×10 Grid, 20 Blöcke.
+
+### Gesamtvergleich
 
 | Feature | Shapley | Banzhaf | Nucleolus | Tau | Utopia | Gately |
 |:-------:|--------:|--------:|--------:|--------:|--------:|--------:|
 | x | 3.307 | 3.307 | 3.307 | 3.061 | 3.449 | 6.035 |
 | y | 1.731 | 1.731 | 1.731 | 1.977 | 1.581 | 4.459 |
 
-![gwd](vergleich_gesamt.png)
+![gwd](gwd/vergleich_gesamt.png)
 
-## Detailtabelle (pro Zustand)
+<details><summary>Detailtabelle (alle Zustände)</summary>
 
 | Zustand | Feature | Shapley | Banzhaf | Nucleolus | Tau | Utopia | Gately |
 |:--------|:-------:|--------:|--------:|--------:|--------:|--------:|--------:|
@@ -178,8 +270,7 @@ Gately ist ungeeignet für Explainability, da es den Gesamtwert nur verteilt und
 | `(9, 9)` | x | 0.713 | 0.713 | 0.713 | 0.713 | 0.907 | 4.760 |
 | `(9, 9)` | y | 0.194 | 0.194 | 0.194 | 0.194 | 0.000 | 4.240 |
 
-Wichtigstes Feature (Mittel): x (Zeile) — 3.31 vs. 1.73 für y.
+</details>
 
-Methoden: Shapley ≈ Banzhaf ≈ Nucleolus am stabilsten. Tau/Utopia weichen in Einzelzuständen ab. Gately größere Zahlen, anderes Konzept.
+---
 
-Warum: Die Zeile hilft oft mehr bei der Orientierung im großen Gitter — aber stark zustandsabhängig (z. B. (2,3) mit sehr hohen/negativen Werten). Mittelwert ≠ überall gleich; Detailtabelle beachten.
