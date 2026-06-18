@@ -133,7 +133,7 @@ class Nucleolus:
                     v_N_norm_k    = float(v_N.flat[k]) - v_empty_k
                     per_comp.append(self._compute(norm_C_values, v_N_norm_k))
                 # Shape (n_components, F_card) mirrors Shapley's policy layout.
-                nucleolus_values[tuple(state)] = np.array(per_comp)
+                nucleolus_values[tuple(state)] = np.array(per_comp).T
             else:
                 # ---------- 0-normalisation (scalar game) ----------
                 # Same logic as above: subtract v(∅) from every coalition
