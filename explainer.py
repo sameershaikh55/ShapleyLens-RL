@@ -66,6 +66,7 @@ class Explainer:
         self.results[self.args.explainer] = {}
         self.agent = agent
         self.env = env
+        self.states_to_explain=states_to_explain
         # for i in self.args.explainers:
         #     self.results[self.args.explainers[i]] = {}
 

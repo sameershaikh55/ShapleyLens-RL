@@ -130,14 +130,12 @@ def collect_sample_states(env, agent, n_episodes=200, max_states=4):
 
 
 if __name__ == "__main__":
-    assert BattleshipEnv.NUM_FEATURES == 100
-    assert BattleshipEnv.NUM_ROWS == 10
-    assert BattleshipEnv.NUM_COLS == 10
+    assert BattleshipEnv.NUM_FEATURES == 40
+    assert BattleshipEnv.NUM_ROWS == 5
+    assert BattleshipEnv.NUM_COLS == 8
 
     env = BattleshipEnv(seed=0, render_mode=None)
     assert env.state_dim == BattleshipEnv.NUM_FEATURES
-    assert env.state_dim == BattleshipEnv.NUM_ROWS
-    assert env.state_dim == BattleshipEnv.NUM_COLS
 
     agent = Agent(env.state_dim, env.num_actions, epsilon=1.0, gamma=0.95, alpha=0.1)
     grid_label = f"Battleship ({env.rows}x{env.cols})"
@@ -190,59 +188,7 @@ if __name__ == "__main__":
             with open(path, "wb") as f:
                 pickle.dump(values, f)
 
-    for name, values in banzhaf_raw.items():
+"""    for name, values in banzhaf_raw.items():
         path = os.path.join(out_dir, f"battleship_demo_banzhaf_unnormalized_{name}.pkl")
         with open(path, "wb") as f:
-            pickle.dump(values, f)
-
-
-if __name__ == "__main__":
-    assert BattleshipEnv.NUM_FEATURES == 40
-
-    env = BattleshipEnv(render_mode="human")
-    assert env.state_dim == BattleshipEnv.NUM_FEATURES
-
-    agent = TrainAgent(env.state_dim, env.num_actions)
-
-    episodes = 5000
-    print("Training (5x8 = 40 Merkmale)...\n")
-
-    rewards_history = []
-    for ep in tqdm(range(episodes), desc="Training", ncols=100):
-        state, info = env.reset()
-        done = False
-        total_reward = 0.0
-        while not done:
-            action = agent.choose_action(state, info)
-            next_state, reward, terminated, truncated, info = env.step(action)
-            done = terminated or truncated
-            agent.update(state, action, next_state, reward, done, info)
-            state = next_state
-            total_reward += reward
-        rewards_history.append(total_reward)
-        if ep % 500 == 0:
-            tqdm.write(
-                f"Episode {ep} | Avg Reward (letzte 100): {np.mean(rewards_history[-100:]):.2f} | "
-                f"Epsilon: {agent.epsilon:.3f}"
-            )
-
-
-    # ------------------------------------------------- TEST GAME
-    print("\nTestspiel (epsilon=0)\n")
-    state, info = env.reset()
-    done = False
-    render_pretty(state, env.rows, env.cols)
-    step_counter = 0
-    while not done:
-        action = agent.choose_action(state, info)
-        state, reward, terminated, truncated, info = env.step(action)
-        done = terminated or truncated
-        render_pretty(state, env.rows, env.cols)
-        print(f"Schritt: {step_counter} | Aktion: {action} | Reward: {reward}")
-        step_counter += 1
-
-    print("\nSpiel beendet.")
-    if info.get("result") == "win":
-        print("Gewonnen.")
-    else:
-        print("Verloren oder abgebrochen.")
+            pickle.dump(values, f)"""
