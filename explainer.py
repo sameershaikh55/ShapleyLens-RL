@@ -1,5 +1,10 @@
+import os
+import copy
 import argparse
 import pickle
+from pathlib import Path
+from typing import Literal
+from contextlib import contextmanager
 
 from shapley import Shapley
 from utopia_payoff import UtopiaPayoff
@@ -21,44 +26,108 @@ from result_analyzer import ResultAnalyzer
 from result_visualizer import ResultVisualizer
 
 from tic_tac_toe.tic_tac_toe import TTT
-from tic_tac_toe.run import tic_tac_toe_init, tic_tac_toe_run
+from tic_tac_toe.run import tic_tac_toe_init, tic_tac_toe_get_characteristic_modes, tic_tac_toe_run
+from gwa.run import gwa_init, gwa_get_characteristic_modes, gwa_run
+from gwb.run import gwb_init, gwb_get_characteristic_modes, gwb_run
+from gwc.run import gwc_init, gwc_get_characteristic_modes, gwc_run
+from gwd.run import gwd_init, gwd_get_characteristic_modes, gwd_run
+from taxi.run import taxi_init, taxi_get_characteristic_modes, taxi_run
+from minesweeper.run import minesweeper_init, minesweeper_get_characteristic_modes, minesweeper_run
+from frozen_lake.run import frozen_lake_init, frozen_lake_get_characteristic_modes, frozen_lake_run
+
+ExplainerName = Literal["shapley", "utopia-payoff", "gately", "banzhaf", "nucleolus", "tau"]
+GameName = Literal["gwa", "gwb", "gwc", "gwd", "minesweeper", "taxi", "tic_tac_toe", "frozen_lake", "battleship"]
+
+ComparisonConfig = tuple[ExplainerName, ExplainerName, GameName]
+
+GAME_REGISTRY = {
+    "tic_tac_toe": {
+        "init": tic_tac_toe_init,
+        "run": tic_tac_toe_run,
+        "modes": tic_tac_toe_get_characteristic_modes,
+    },
+    "gwa": {
+        "init": gwa_init,
+        "run": gwa_run,
+        "modes": gwa_get_characteristic_modes
+    },
+    "gwb": {
+        "init": gwb_init,
+        "run": gwb_run,
+        "modes": gwb_get_characteristic_modes
+    },
+    "gwc": {
+        "init": gwc_init,
+        "run": gwc_run,
+        "modes": gwc_get_characteristic_modes
+    },
+    "gwd": {
+        "init": gwd_init,
+        "run": gwd_run,
+        "modes": gwd_get_characteristic_modes
+    },
+    "minesweeper": {
+        "init": minesweeper_init,
+        "run": minesweeper_run,
+        "modes": minesweeper_get_characteristic_modes,
+    },
+    "taxi": {
+        "init": taxi_init,
+        "run": taxi_run,
+        "modes": taxi_get_characteristic_modes,
+    },
+    "frozen_lake": {
+        "init": frozen_lake_init,
+        "run": frozen_lake_run,
+        "modes": frozen_lake_get_characteristic_modes,
+    },
+}
 
 class Explainer:
-    def __init__(self):
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            "-e",
-            "--explainer",
-            type=str,
-            # nargs="+",
-            default="shapley",
-            choices=[
-                "shapley",
-                "utopia-payoff",
-                "gately",
-                "banzhaf",
-                "nucleolus",
-                "tau"
-            ],
-            help="Choose one or multiple explainers. Use '-e shapley' or '-e shapley utopia-payoff tau'",
-        )
-        parser.add_argument(
-            "-c",
-            "--cache",
-            action="store_true",
-            help="Use cache for characteristics",
-        )
-        parser.add_argument(
-            "-n",
-            "--normalize",
-            action="store_true",
-            help="Normalize value",
-        )
-        self.args = parser.parse_args()
-        self.results = {}
-        self.results[self.args.explainer] = {}
-        # for i in self.args.explainers:
-        #     self.results[self.args.explainers[i]] = {}
+
+    def __init__(
+        self,
+        explainers: list[ExplainerName],
+        games: list[GameName],
+        configs: list[ComparisonConfig],
+        use_cache: bool = False,
+        normalize: bool = False,
+        cache_root: str = "cache",
+        output_root: str = "outputs",
+    ):
+
+        self.explainers = explainers
+        self.games = games
+        self.comparisons = configs
+        self.use_cache = use_cache
+        self.normalize = normalize
+        self.cache_root = Path(cache_root)
+        self.output_root = Path(output_root)
+
+        self.results: dict[
+            GameName, dict[ExplainerName, dict[str, object]]
+        ] = {game: {} for game in games}
+
+        self.characteristics_by_game: dict[GameName, dict[str, object]] = {}
+        self.states_by_game: dict[GameName, object] = {}
+
+    def _make_explainer(
+        self, method: ExplainerName, states_to_explain
+    ):
+        if method == "shapley":
+            return Shapley(states_to_explain)
+        if method == "utopia-payoff":
+            return UtopiaPayoff(states_to_explain, normalized=self.normalize)
+        if method == "gately":
+            return Gately(states_to_explain)
+        if method == "banzhaf":
+            return Banzhaf(states_to_explain, normalized=self.normalize)
+        if method == "nucleolus":
+            return Nucleolus(states_to_explain)
+        if method == "tau":
+            return TauValue(states_to_explain)
+
+        raise ValueError(f"Unknown explainer: {method}")
 
     def set_states(self, states_to_explain):
         if self.args.explainer == "shapley":
@@ -73,192 +142,178 @@ class Explainer:
             self.expl = Nucleolus(states_to_explain)
         elif self.args.explainer == "tau":
             self.expl = TauValue(states_to_explain)
+
+    def _cache_dir(self, game: GameName):
+        path = self.cache_root / game
+        path.mkdir(parents=True, exist_ok=True)
+        return path
     
-    def save(self, char_list, names):
-        for char_data, characteristic_type in zip(char_list, names):
-            if not self.args.cache:
-                with open('{}.cache'.format(characteristic_type), 'wb') as file: pickle.dump(char_data, file)
+    def _cache_path(self, game: GameName, characteristic_mode):
+        return self._cache_dir(game) / f"{characteristic_mode}.cache"
     
-    def print(self):
-        # ------------------------------------------------- ANALYZE RESULTS
-        analyzer = ResultAnalyzer(self.results)
+    def save_characteristics_cache(self, game: GameName, characteristics: dict[str, object]):
+        for characteristic_mode, char_data in characteristics.items():
+            path = self._cache_path(game, characteristic_mode)
+            with open(path, "wb") as file:
+                pickle.dump(char_data, file)
 
-        analyzer.save_pickle()
-        analyzer.save_json()
-        analyzer.save_csv()
-        analyzer.save_summary_csv()
+    def load_characteristics_cache(self, game: GameName, characteristic_modes : list[str] | None = None, strict=True):
+        game_path = self._cache_dir(game)
 
-        analyzer.save_value_comparison_pickle(left_value="shapley", right_value="shapley")
-        analyzer.save_value_comparison_csv(left_value="shapley", right_value="shapley")
+        if characteristic_modes is None:
+            characteristic_modes = [p.stem for p in game_path.glob("*.cache")]
 
-        # ------------------------------------------------- VISUALIZE RESULTS
-        visualizer = ResultVisualizer(self.results)
+        characteristics = {}
+        missing = []
 
-        visualizer.plot_heatmaps()
-        visualizer.plot_difference_heatmaps(left_value="shapley", right_value="shapley")
-        visualizer.plot_value_comparison_bars()
+        for characteristic_mode in characteristic_modes:
+            path = self._cache_path(game, characteristic_mode)
+            if not path.exists():
+                missing.append(characteristic_mode)
+                continue
 
-    def get_cache(self, game_loc=None, characteristic_names=None):
-        import pickle
+            with open(path, "rb") as file:
+                characteristics[characteristic_mode] = pickle.load(file)
 
-        with open(game_loc + "/local.cache", "rb") as f:
-            local = pickle.load(f)
-        with open(game_loc + "/policy.cache", "rb") as f:
-            policy = pickle.load(f)
-        with open(game_loc + "/value_function.cache", "rb") as f:
-            value_function = pickle.load(f)
-
-        return [local, policy, value_function]
-    
-    def compute_state_dist(self, sample_size=1e6, agent=None, env=None):
-        """Approximiert die Zustandsverteilung (wie utils.get_state_dist)."""
-        from utils import get_state_dist
-
-        ag = agent or self.agent
-        ev = env or self.env
-        if ag is None or ev is None:
-            raise ValueError("compute_state_dist: agent and environment should have been set in explainer.")
-        self.state_dist = get_state_dist(ag, ev, int(sample_size))
-        return self.state_dist
-    
-    def get_value_table_for_shapley(self, agent=None, env=None):
-        ag = agent or self.agent
-        ev = env or self.env
-        if ag is None or ev is None:
-            raise ValueError("get_value_table_for_shapley: agent and environment should have been set in explainer.")
-        ag.get_value_table(ev.valid_dict)
-
-    def compute_pi_Cs(self, valid_dict=None):
-        """Compute policy characteristic functions pi_C for all coalitions C."""
-        if self.agent is None or self.env is None or self.states_to_explain is None:
-            self.pi_Cs = {}
-            return self.pi_Cs
-        if getattr(self, "state_dist", None) is None:
-            raise ValueError("explainer.state_dist fehlt: zuerst get_state_dist(...) zuweisen.")
-        F = np.arange(self.env.state_dim)
-        self.pi_Cs = {
-            tuple(C): self.agent.get_pi_C(C, self.state_dist, self.states_to_explain)
-            for C in tqdm_label(F_not_i(F), "Calculating all pi_C")
-        }
-        return self.pi_Cs
-
-    def compute_v_Cs(self, valid_dict=None):
-        """Compute partially observed value tables v_C for all coalitions C."""
-        if self.agent is None or self.env is None or self.states_to_explain is None:
-            self.v_Cs = {}
-            return self.v_Cs
-        if getattr(self, "state_dist", None) is None:
-            raise ValueError("explainer.state_dist fehlt: zuerst get_state_dist(...) zuweisen.")
-        if not hasattr(self.agent, "value_table"):
-            raise ValueError("agent.value_table fehlt: zuerst agent.get_value_table() aufrufen.")
-        F = np.arange(self.env.state_dim)
-        self.v_Cs = {
-            tuple(C): self.agent.get_v_C(C, self.state_dist, self.states_to_explain)
-            for C in tqdm_label(F_not_i(F), "Calculating all v_C")
-        }
-        return self.v_Cs
-
-    def compute_characteristics(
-        self, characteristic_modes, num_rolls=1, multi_process=False, num_p=1, valid_dict=None
-    ):
-        """Compute characteristic values for each requested mode."""
-        if self.env is None or self.states_to_explain is None:
-            return {mode: {} for mode in characteristic_modes}
-        vd = valid_dict if valid_dict is not None else self.valid_dict
-        ch = Characteristics(self.env, self.states_to_explain, instances=self.instances)
-        num_rolls = int(num_rolls)
-        out = {mode: {} for mode in characteristic_modes}
-
-        if "local_sverl" in characteristic_modes:
-            out["local_sverl"] = ch.local_sverl_C_values(
-                num_rolls, self.pi_Cs, multi_process=multi_process, num_p=num_p
+        if strict and missing:
+            raise FileNotFoundError(
+                f"Missing cache files for game '{game}': {path}'/'{missing}"
             )
-        if "global_sverl" in characteristic_modes:
-            out["global_sverl"] = ch.global_sverl_C_values(
-                num_rolls, self.pi_Cs, multi_process=multi_process, num_p=num_p
-            )
-        if "fast_local_sverl" in characteristic_modes:
-            out["fast_local_sverl"] = ch.fast_local_sverl_C_values(
-                self.pi_Cs,
-                num_rolls=num_rolls,
-                valid_dict=vd,
-                multi_process=multi_process,
-                num_p=num_p,
-            )
-        if "shapley_on_policy" in characteristic_modes:
-            out["shapley_on_policy"] = ch.shapley_on_policy(
-                self.pi_Cs, multi_process=multi_process, num_p=num_p
-            )
-        if "shapley_on_value" in characteristic_modes:
-            out["shapley_on_value"] = ch.shapley_on_value(
-                self.v_Cs, multi_process=multi_process, num_p=num_p
-            )
-
-        return out
-    
-    def old_run(self, char_list, names):
-        for char_data, characteristic_type in zip(char_list, names):
-            explainer_values = self.expl.run(char_data)
-            self.results[self.args.explainer][characteristic_type] = explainer_values
-            with open('{}.pkl'.format(characteristic_type), 'wb') as file: pickle.dump(explainer_values, file)
-
-    def run(self, method, characteristics):
-        for char_data, characteristic_type in characteristics.items():
-            explainer_values = self.expl.run(char_data)
-            self.results[method][characteristic_type] = explainer_values
-            with open('{}.pkl'.format(characteristic_type), 'wb') as file: pickle.dump(explainer_values, file)
-    
-    def run_values(self, characteristics, methods=('shapley', 'banzhaf', 'nucleolus'), normalized=True):
-        """
-        Run value calculations using the specified methods.
         
-        Args:
-            characteristics: Dictionary of characteristic functions
-            methods: Tuple of method names ('shapley', 'banzhaf', 'nucleolus', etc.)
-            normalized: Whether to normalize values
-            
-        Returns:
-            Dictionary mapping method names to their results
-        """
-        results = {}
-        
-        for method in methods:
-            if method == 'shapley':
-                self.expl = Shapley(self.states_to_explain)
-            elif method == 'banzhaf':
-                self.expl = Banzhaf(self.states_to_explain, normalized=normalized)
-            elif method == 'nucleolus':
-                self.expl = Nucleolus(self.states_to_explain)
-            elif method == 'utopia-payoff':
-                self.expl = UtopiaPayoff(self.states_to_explain, normalized=normalized)
-            elif method == 'gately':
-                self.expl = Gately(self.states_to_explain)
-            elif method == 'tau':
-                self.expl = TauValue(self.states_to_explain)
-            self.run(method=method, characteristics=characteristics)
-        
-        return results
+        return characteristics
     
-if __name__ == "__main__":
-    explainer = Explainer()
+    def _get_game_spec(self, game: GameName):
+        if game not in GAME_REGISTRY:
+            raise ValueError(f"No registry entry for game '{game}'")
+        return GAME_REGISTRY[game]
+    
+    def compute_or_load_game(
+        self,
+        game: GameName,
+    ) -> tuple[object, dict[str, object]]:
+        spec = self._get_game_spec(game)
 
-    env, agent, states_to_explain = tic_tac_toe_init()
-    explainer.env = env
-    explainer.agent = agent
-    explainer.states_to_explain = states_to_explain
+        env, agent, states_to_explain = spec["init"]()
+        characteristic_modes = spec["modes"]()
 
-    if explainer.args.cache:
-        characteristic_names = ["local", "policy", "value_function"]
+        if self.use_cache:
+            characteristics = self.load_characteristics_cache(
+                game=game,
+                characteristic_modes=characteristic_modes,
+                strict=True,
+            )
+        else:
+            characteristics = spec["run"](
+                env=env,
+                agent=agent,
+                states_to_explain=states_to_explain,
+            )
+            self.save_characteristics_cache(
+                game=game,
+                characteristics=characteristics,
+            )
+
+        self.states_by_game[game] = states_to_explain
+        self.characteristics_by_game[game] = characteristics
+
+        return states_to_explain, characteristics
+
+    def run_one_game(self, game: GameName):
+        print(f"Running game: {game}")
+
+        states_to_explain, characteristics = self.compute_or_load_game(game)
+
+        for method in self.explainers:
+            expl = self._make_explainer(method, states_to_explain)
+
+            method_results = {}
+            for characteristic_type, char_data in characteristics.items():
+                method_results[characteristic_type] = expl.run(char_data)
+
+            self.results[game][method] = method_results
+
+    def run_all_games(self):
+        for game in self.games:
+            self.run_one_game(game)
+
+    @contextmanager
+    def _in_output_dir(self, subdir: Path):
+        old_cwd = Path.cwd()
+        subdir.mkdir(parents=True, exist_ok=True)
+        os.chdir(subdir)
         try:
-            characteristic_results = explainer.get_cache(game_loc="tic_tac_toe")
-        except:
-            print("Cache files not found. Please run without --cached True first")
-            sys.exit(1)
-    else:
-        characteristic_results, characteristic_names = tic_tac_toe_run(env=env, agent=agent, states_to_explain=states_to_explain)
-        # characteristics = 
+            yield
+        finally:
+            os.chdir(old_cwd)
 
-    explainer.set_states(states_to_explain)
+    import copy
 
-    explainer.old_run(char_list=characteristic_results, names=characteristic_names)
-    explainer.print()
+    def analyze_and_visualize(self):
+        for game in self.games:
+            game_results = self.results[game]
+
+            if not game_results:
+                continue
+
+            game_output_dir = self.output_root / game
+
+            with self._in_output_dir(game_output_dir):
+                analyzer = ResultAnalyzer(copy.deepcopy(game_results))
+                analyzer.save_pickle()
+                analyzer.save_json()
+                analyzer.save_csv()
+                analyzer.save_summary_csv()
+
+                visualizer = ResultVisualizer(copy.deepcopy(game_results))
+                visualizer.plot_heatmaps()
+                visualizer.plot_value_comparison_bars()
+
+        for left_explainer, right_explainer, game in self.comparisons:
+            if game not in self.results:
+                raise ValueError(f"Game '{game}' not in results")
+
+            game_results = self.results[game]
+
+            if left_explainer not in game_results:
+                raise ValueError(
+                    f"Explainer '{left_explainer}' missing for game '{game}'"
+                )
+            if right_explainer not in game_results:
+                raise ValueError(
+                    f"Explainer '{right_explainer}' missing for game '{game}'"
+                )
+
+            pair_results = {
+                left_explainer: copy.deepcopy(game_results[left_explainer]),
+                right_explainer: copy.deepcopy(game_results[right_explainer]),
+            }
+
+            comparison_output_dir = (
+                self.output_root
+                / game
+                / f"compare_{left_explainer}_vs_{right_explainer}"
+            )
+            print(f"comparing {left_explainer} and {right_explainer}")
+
+            with self._in_output_dir(comparison_output_dir):
+                analyzer = ResultAnalyzer(pair_results)
+                analyzer.save_value_comparison_pickle(
+                    left_value=left_explainer,
+                    right_value=right_explainer,
+                )
+                analyzer.save_value_comparison_csv(
+                    left_value=left_explainer,
+                    right_value=right_explainer,
+                )
+
+                visualizer = ResultVisualizer(pair_results)
+                visualizer.plot_heatmaps()
+                visualizer.plot_difference_heatmaps(
+                    left_value=left_explainer,
+                    right_value=right_explainer,
+                )
+                visualizer.plot_value_comparison_bars()
+
+    def run(self):
+        self.run_all_games()
+        self.analyze_and_visualize()

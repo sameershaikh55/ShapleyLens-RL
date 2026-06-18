@@ -10,7 +10,7 @@ def train(agent, env, num_steps):
 
     state, info = env.reset()
 
-    for _ in tqdm_label(range(int(num_steps)), 'Training Agent'):
+    for _ in tqdm_label(range(int(num_steps)), '    Training Agent'):
 
         # Usual RL, choose action, execute, update
         action = agent.choose_action(state, info)
@@ -54,7 +54,7 @@ def find_states_minesweeper(agent, env, states_to_explain, num_steps):
 
     state, info = env.reset()
 
-    for _ in tqdm_label(range(int(num_steps)), 'Finding States'):
+    for _ in tqdm_label(range(int(num_steps)), '    Finding States'):
 
         # Saving instance of the environment for state which is being explained.
         if (state == states_to_explain).all(axis=1).any(): instances[tuple(state)][tuple(env.get_full_state())] += 1
@@ -81,7 +81,7 @@ def get_state_dist(agent, env, sample_size):
 
     state, _ = env.reset()
 
-    for _ in tqdm_label(range(int(sample_size)), 'Approximating State Distribution'):
+    for _ in tqdm_label(range(int(sample_size)), '    Approximating State Distribution'):
 
         state_dist[tuple(state)] += 1
         agent.Q_table[tuple(state)] # To keep number of states in state dist and Q table the same.
