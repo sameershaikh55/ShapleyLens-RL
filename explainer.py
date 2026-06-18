@@ -119,7 +119,7 @@ class Explainer:
         if method == "utopia-payoff":
             return UtopiaPayoff(states_to_explain, normalized=self.normalize)
         if method == "gately":
-            return Gately(states_to_explain)
+            return Gately(states_to_explain, normalized=self.normalize)
         if method == "banzhaf":
             return Banzhaf(states_to_explain, normalized=self.normalize)
         if method == "nucleolus":
@@ -135,7 +135,7 @@ class Explainer:
         elif self.args.explainer == "utopia-payoff":
             self.expl = UtopiaPayoff(states_to_explain, normalized=self.args.normalize)
         elif self.args.explainer == "gately":
-            self.expl = Gately(states_to_explain)
+            self.expl = Gately(states_to_explain, normalized=self.args.normalize)
         elif self.args.explainer == "banzhaf":
             self.expl = Banzhaf(states_to_explain, normalized=self.args.normalize)
         elif self.args.explainer == "nucleolus":
