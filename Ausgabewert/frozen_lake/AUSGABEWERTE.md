@@ -44,3 +44,6 @@ Wichtigste Methode: praktisch nur Gately (kleine Werte ~0.015).
 Shapley, Banzhaf, Nucleolus, Tau, Utopia: überall ≈ 0.
 
 Wichtigstes Feature: row ≈ col — kein klares Ranking im Mittel.
+Weil ein einzelnes Feature nicht genügend Information liefert, um den Zustandswert zu bestimmen.
+
+Gately ist ungeeignet für Explainability, da es den Gesamtwert nur verteilt und nicht den tatsächlichen Einfluss der Features misst

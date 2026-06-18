@@ -46,3 +46,5 @@ Wichtigste Felder: (2,0) und (2,2) (Gegner-Steine, Drohung unten) → danach (2,
 Methoden: Shapley ≈ Banzhaf ≈ Nucleolus — gleiches Ranking. Tau/Utopia betonen die Schlüsselfelder stärker. Gately eigene Skala (leere Felder oft negativ).
 
 Warum: Der Kampf läuft um die untere Reihe — wer die Gegner-Ecken und das Blockfeld (2,1) kennt, versteht die Stellung.
+
+Für Tic‑Tac‑Toe ist Shapley die beste Methode, da sie spielentscheidende Felder korrekt identifiziert und konsistente Ergebnisse liefert.
