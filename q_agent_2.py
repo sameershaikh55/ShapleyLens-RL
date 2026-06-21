@@ -75,6 +75,16 @@ class Agent:
 
         self.value_table = {state: q_values[valid_dict[np.array(state).tobytes()]].max() for state, q_values in self.Q_table.items()}
 
+    def _aligned_state_arrays(self, state_dist):
+        """States present in policy, value table, and state distribution (same order)."""
+        states_list = [
+            s for s in self.policy
+            if s in self.value_table and s in state_dist
+        ]
+        all_states = np.array(states_list)
+        state_dist_full = np.array([state_dist[s] for s in states_list], dtype=float) + 1e-16
+        return all_states, state_dist_full
+
     def get_pi_C(self, C, state_dist, states_to_explain, valid_dict):
         """
         Calculates pi_C for given states.
@@ -83,27 +93,22 @@ class Agent:
         if len(C) == self.state_dim: return copy.deepcopy(self.policy)
         else:
 
-            # Mask out features not in C to find states which share observations.
-            all_states = np.array(list(self.policy.keys()))
+            all_states, state_dist_full = self._aligned_state_arrays(state_dist)
             mask_states = mask_state(states_to_explain, self.state_dim, C)
             mask_all_states = mask_state(all_states, self.state_dim, C)
 
-            # Limiting state occupancy distribution: p^{\pi}(s)
-            state_dist_full = np.array(list(state_dist.values())) + 1e-16 # Jitter for divide 0
-
-            # For making new policy
             pi_C = PolicyDict()
             pi_C.valid_dict = valid_dict
             pi_C.num_actions = self.num_actions
             temp_pi_C = {}
+            policy_vals = np.array([self.policy[tuple(s)] for s in all_states])
 
             for m_state in np.unique(mask_states, axis=0):
 
                 ind = (mask_all_states == m_state).all(axis=1)
-                state_dist_cond = state_dist_full[ind] / state_dist_full[ind].sum() # Conditional limiting state occupancy distribution.
+                state_dist_cond = state_dist_full[ind] / state_dist_full[ind].sum()
 
-                # pi_C = \sum_{s \in S}{\pi(a|s) * p(s|s_C)}
-                temp_pi_C[tuple(m_state)] = (np.array(list(self.policy.values()))[ind] * state_dist_cond[:, None]).sum(axis=0)
+                temp_pi_C[tuple(m_state)] = (policy_vals[ind] * state_dist_cond[:, None]).sum(axis=0)
 
             # Set partially observed policies for fully observed states using^
             for state, m_state in zip(states_to_explain, mask_states):
@@ -120,18 +125,13 @@ class Agent:
         Converts the q_values for SHAP
         """
 
-        # Mask out features not in C to find states which share observations.
-        all_states = np.array(list(self.policy.keys()))
+        all_states, state_dist_full = self._aligned_state_arrays(state_dist)
         mask_states = mask_state(states_to_explain, self.state_dim, C)
         mask_all_states = mask_state(all_states, self.state_dim, C)
 
-        # Limiting state occupancy distribution: p^{\pi}(s)
-        state_dist_full = np.array(list(state_dist.values())) + 1e-16 # Jitter for divide 0
-
-        # For making new value table
         v_C = {}
         temp_v_C = {}
-        values = np.array(list(self.value_table.values()))
+        values = np.array([self.value_table[tuple(s)] for s in all_states])
 
         for m_state in np.unique(mask_states, axis=0):
 
