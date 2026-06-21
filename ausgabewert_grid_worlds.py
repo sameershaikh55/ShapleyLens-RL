@@ -179,15 +179,21 @@ def save_summary_plot(
     """
     Speichert ``vergleich_gesamt.png``: Balkendiagramm + Heatmap (≤4 Features)
     oder nur Heatmap bei mehr Features (z. B. wenn von anderen Skripten genutzt).
+
+    Gately wird in einem eigenen Panel gezeigt, da es v(N) verteilt und andere
+    Methoden marginale Beiträge liefern — sonst dominiert Gately die Skala.
     """
     names = feature_names or FEATURE_NAMES
     out_dir.mkdir(parents=True, exist_ok=True)
     mat = _mean_matrix(results, states, names)
     n_feat, n_methods = mat.shape
+    compare_idx = [i for i, m in enumerate(METHODS) if m != "gately"]
+    gately_idx = METHODS.index("gately")
 
     if n_feat > 4:
         fig, ax = plt.subplots(figsize=(10, max(4, n_feat * 0.45 + 1)))
-        im = ax.imshow(mat, aspect="auto", cmap="YlOrRd")
+        vmax = max(abs(mat.min()), abs(mat.max()), 1e-9)
+        im = ax.imshow(mat, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
         fig.colorbar(im, ax=ax, fraction=0.046)
         ax.set_xticks(range(n_methods))
         ax.set_xticklabels([METHOD_LABELS[m] for m in METHODS], rotation=30, ha="right")
@@ -202,24 +208,40 @@ def save_summary_plot(
         plt.close(fig)
         return
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4.5))
 
+    # Panel 1: Shapley, Banzhaf, Nucleolus, Tau, Utopia
     ax = axes[0]
-    x = np.arange(n_methods)
+    mat_compare = mat[:, compare_idx]
+    x = np.arange(len(compare_idx))
     width = 0.35
     for fi, fn in enumerate(names):
         offset = (fi - 0.5) * width
-        ax.bar(x + offset, mat[fi], width, label=fn)
+        ax.bar(x + offset, mat_compare[fi], width, label=fn)
     ax.axhline(0, color="#999", linewidth=0.8)
     ax.set_xticks(x)
-    ax.set_xticklabels([METHOD_LABELS[m] for m in METHODS], rotation=30, ha="right")
+    ax.set_xticklabels([METHOD_LABELS[METHODS[i]] for i in compare_idx], rotation=30, ha="right")
     ax.set_ylabel("Mittlerer Ausgabewert")
-    ax.set_title(f"{game_name.upper()} — Mittel über alle Zustände")
+    ax.set_title(f"{game_name.upper()} — Shapley-Methoden")
     ax.legend()
 
-    # Heatmap (kompakt)
+    # Panel 2: Gately (eigene Skala)
     ax = axes[1]
-    im = ax.imshow(mat, aspect="auto", cmap="YlOrRd")
+    x_g = np.arange(1)
+    for fi, fn in enumerate(names):
+        offset = (fi - 0.5) * width
+        ax.bar(x_g + offset, [mat[fi, gately_idx]], width, label=fn)
+    ax.axhline(0, color="#999", linewidth=0.8)
+    ax.set_xticks(x_g)
+    ax.set_xticklabels([METHOD_LABELS["gately"]])
+    ax.set_ylabel("Mittlerer Ausgabewert")
+    ax.set_title("Gately")
+    ax.legend()
+
+    # Panel 3: Heatmap aller Methoden
+    ax = axes[2]
+    vmax = max(abs(mat.min()), abs(mat.max()), 1e-9)
+    im = ax.imshow(mat, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
     fig.colorbar(im, ax=ax, fraction=0.046)
     ax.set_xticks(range(n_methods))
     ax.set_xticklabels([METHOD_LABELS[m] for m in METHODS], rotation=30, ha="right")
