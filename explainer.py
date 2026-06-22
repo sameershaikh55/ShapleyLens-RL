@@ -236,18 +236,6 @@ class Explainer:
         for game in self.games:
             self.run_one_game(game)
 
-    @contextmanager
-    def _in_output_dir(self, subdir: Path):
-        old_cwd = Path.cwd()
-        subdir.mkdir(parents=True, exist_ok=True)
-        os.chdir(subdir)
-        try:
-            yield
-        finally:
-            os.chdir(old_cwd)
-
-    import copy
-
     def analyze_and_visualize(self):
         for game in self.games:
             game_results = self.results[game]
@@ -257,16 +245,22 @@ class Explainer:
 
             game_output_dir = self.output_root / game
 
-            with self._in_output_dir(game_output_dir):
-                analyzer = ResultAnalyzer(copy.deepcopy(game_results))
-                analyzer.save_pickle()
-                analyzer.save_json()
-                analyzer.save_csv()
-                analyzer.save_summary_csv()
+            analyzer = ResultAnalyzer(copy.deepcopy(game_results))
 
-                visualizer = ResultVisualizer(copy.deepcopy(game_results))
-                visualizer.plot_heatmaps()
-                visualizer.plot_value_comparison_bars()
+            analyzer.save_pickle(game_output_dir / "data/results.pkl")
+            analyzer.save_json(game_output_dir / "data/results.json")
+            analyzer.save_csv(game_output_dir / "data/results.csv")
+            analyzer.save_summary_csv(game_output_dir / "data/summary.csv")
+
+            visualizer = ResultVisualizer(copy.deepcopy(analyzer.results))
+
+            visualizer.plot_heatmaps(
+                output_dir=game_output_dir / "plots/raw"
+            )
+
+            visualizer.plot_value_comparison_bars(
+                output_dir=game_output_dir / "plots/value_comparison"
+            )
 
         for left_explainer, right_explainer, game in self.comparisons:
             if game not in self.results:
@@ -295,24 +289,28 @@ class Explainer:
             )
             print(f"comparing {left_explainer} and {right_explainer}")
 
-            with self._in_output_dir(comparison_output_dir):
-                analyzer = ResultAnalyzer(pair_results)
-                analyzer.save_value_comparison_pickle(
-                    left_value=left_explainer,
-                    right_value=right_explainer,
-                )
-                analyzer.save_value_comparison_csv(
-                    left_value=left_explainer,
-                    right_value=right_explainer,
-                )
+            analyzer = ResultAnalyzer(pair_results)
 
-                visualizer = ResultVisualizer(pair_results)
-                visualizer.plot_heatmaps()
-                visualizer.plot_difference_heatmaps(
-                    left_value=left_explainer,
-                    right_value=right_explainer,
-                )
-                visualizer.plot_value_comparison_bars()
+            analyzer.save_value_comparison_pickle(
+                left_value=left_explainer,
+                right_value=right_explainer,
+                output_dir=comparison_output_dir / "data/value_comparison.pkl",
+            )
+
+            analyzer.save_value_comparison_csv(
+                left_value=left_explainer,
+                right_value=right_explainer,
+                output_dir=comparison_output_dir / "data/value_comparison.csv",
+            )
+
+            visualizer = ResultVisualizer(copy.deepcopy(analyzer.results))
+
+            visualizer.plot_difference_heatmaps(
+                left_value=left_explainer,
+                right_value=right_explainer,
+                output_dir=comparison_output_dir / "plots/diff",
+            )
+
 
     def run(self):
         self.run_all_games()
