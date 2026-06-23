@@ -86,12 +86,12 @@ class Characteristics:
         # Do all the roll outs once now. Different values if available actions are state dependent or not.
         if valid_dict is None: self.action_values = {tuple(state) : np.mean([[self.play_episode(state.copy(), self.pi_Cs[tuple(self.F)], action) 
                                   for action in range(self.env.num_actions)] 
-                                  for _ in tqdm_label(range(int(num_rolls)), 'Calculating Characteristics {}/{}'.format(i + 1, len(self.states_to_explain)))], axis=0)
+                                  for _ in tqdm_label(range(int(num_rolls)), '    Calculating Characteristics {}/{}'.format(i + 1, len(self.states_to_explain)))], axis=0)
                                   for i, state in enumerate(self.states_to_explain)}
             
         else: self.action_values = {tuple(state) : np.mean([[self.play_episode(state.copy(), self.pi_Cs[tuple(self.F)], action) if action in valid_dict[state.tobytes()] else 0 
                                   for action in range(self.env.num_actions)]
-                                  for _ in tqdm_label(range(int(num_rolls)), 'Calculating Characteristics {}/{}'.format(i + 1, len(self.states_to_explain)))], axis=0)
+                                  for _ in tqdm_label(range(int(num_rolls)), '    Calculating Characteristics {}/{}'.format(i + 1, len(self.states_to_explain)))], axis=0)
                                   for i, state in enumerate(self.states_to_explain)}
 
         return self.get_all_C_values(self.get_fast_local, multi_process, num_p)
@@ -173,11 +173,8 @@ class Characteristics:
                     p.join()
 
             return dict(characteristic_values)
-
-        return {
-            tuple(C): get_C_values(C)
-            for C in tqdm_label(all_C, "Calculating Characteristics")
-        }
+            
+        else: return {tuple(C): get_C_values(C) for C in tqdm_label(F_not_i(self.F), '    Calculating Characteristics')}
     
     def worker(self, C, characteristic_values, get_C_values): characteristic_values[tuple(C)] = get_C_values(C)
 

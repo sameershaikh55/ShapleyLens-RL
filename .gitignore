@@ -9,6 +9,12 @@ __pycache__/
 # cache files
 *.cache
 
+# data, plots and stuff
+data/
+plots/
+outputs/
+
+
 # Distribution / packaging
 .Python
 build/
@@ -51,8 +57,6 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
-plots/
-data/
 .pytest_cache/
 cover/
 
