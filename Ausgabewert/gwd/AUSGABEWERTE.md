@@ -175,3 +175,12 @@ Charakteristik: **local_sverl** | Train: 300,000 | Rolls: 5,000
 | `(9, 8)` | y | 0.085 | 0.085 | 0.085 | 0.085 | 0.000 | 0.085 |
 | `(9, 9)` | x | 0.713 | 0.713 | 0.713 | 0.713 | 0.907 | 0.713 |
 | `(9, 9)` | y | 0.194 | 0.194 | 0.194 | 0.194 | 0.000 | 0.194 |
+
+
+Umgebung: 10×10 Grid mit 20 Blöcken. Features: x, y. Größtes Grid – höhere absolute Werte.
+
+Befund: Stärkstes Signal aller Grid-Worlds: x (~3,31) ist fast doppelt so wichtig wie y (~1,73). Die Shapley-Gruppe (Shapley/Banzhaf/Nucleolus/Gately) ist identisch. Tau unterschätzt x (3,06) und überschätzt y (1,98) – fast Rangfolgenvertauschung. Utopia überschätzt x leicht (3,45).
+
+Wichtig: Tau wäre hier gefährlich – die Aussage x > y wäre zwar noch korrekt, aber der Abstand wird stark unterschätzt und die Werte nähern sich an. Bei GWD macht die Methodenwahl den größten Unterschied.
+
+✓  Empfehlung: Shapley. Tau und Utopia vermeiden – beide verzerren die Feature-Rangfolge erheblich.

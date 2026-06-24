@@ -10,10 +10,12 @@ Ergebnisse → Ordner ``Ausgabewert/`` (nicht Teil des RL-Trainings in ``gwa/run
 
     python ausgabewert_grid_worlds.py
     python ausgabewert_grid_worlds.py gwa gwb
+    python ausgabewert_grid_worlds.py gwa --plot-only
 """
 
 from __future__ import annotations
 
+import argparse
 import importlib
 import pickle
 import sys
@@ -172,90 +174,160 @@ def _mean_matrix(results: dict, states, feature_names: list[str] | None = None) 
     return mat
 
 
+ROW_COLOR = "#2E86AB"
+COL_COLOR = "#E07A5F"
+FEATURE_BAR_LABELS = ["x (Zeile)", "y (Spalte)"]
+
+
+def save_vergleich_gesamt_plot(
+    results: dict,
+    states,
+    out_dir: Path,
+    game_name: str,
+    *,
+    feature_names: list[str] | None = None,
+    bar_labels: list[str] | None = None,
+    bar_title: str = "Methodenvergleich — Mittelwert x vs. y",
+) -> None:
+    """Speichert ``vergleich_gesamt.png``: Balkendiagramm + Heatmap (2 Features)."""
+    names = feature_names or FEATURE_NAMES
+    labels = bar_labels or FEATURE_BAR_LABELS
+    out_dir.mkdir(parents=True, exist_ok=True)
+    mat = _mean_matrix(results, states, names)
+    n_feat, n_methods = mat.shape
+
+    if n_feat > 4:
+        scale = 1e3 if max(abs(mat.min()), abs(mat.max())) < 0.01 else 1
+        fig, (ax_bar, ax_hm) = plt.subplots(1, 2, figsize=(16, 6), facecolor="white")
+        fig.suptitle(
+            f"{game_name.upper()} — Ausgabewert-Vergleich",
+            fontsize=15, fontweight="bold", y=1.0,
+        )
+
+        x = np.arange(n_feat)
+        width = 0.12
+        method_colors = plt.cm.tab10(np.linspace(0, 0.6, n_methods))
+        for mi, method in enumerate(METHODS):
+            ax_bar.bar(
+                x + (mi - (n_methods - 1) / 2) * width,
+                mat[:, mi], width,
+                label=METHOD_LABELS[method],
+                color=method_colors[mi], edgecolor="white", linewidth=0.6,
+            )
+        ax_bar.axhline(0, color="#888", linewidth=0.9, zorder=0)
+        ax_bar.set_xticks(x)
+        ax_bar.set_xticklabels(names, rotation=45, ha="right", fontsize=9)
+        ax_bar.set_title("Methodenvergleich — Ausgabewert pro Feld", fontsize=12, fontweight="bold")
+        ax_bar.legend(loc="upper right", fontsize=8, framealpha=0.95, ncol=2)
+        ax_bar.grid(axis="y", alpha=0.35, linestyle="--")
+        ax_bar.spines["top"].set_visible(False)
+        ax_bar.spines["right"].set_visible(False)
+        if scale != 1:
+            ax_bar.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v * scale:.2f}"))
+            ax_bar.set_ylabel("Ausgabewert (×10⁻³)")
+        else:
+            ax_bar.set_ylabel("Ausgabewert")
+
+        vmax = max(abs(mat.min()), abs(mat.max()), 1e-9)
+        im_hm = ax_hm.imshow(mat, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
+        cbar = fig.colorbar(im_hm, ax=ax_hm, fraction=0.046, pad=0.04)
+        if scale != 1:
+            cbar.ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v * scale:.2f}"))
+            cbar.set_label("×10⁻³")
+        ax_hm.set_xticks(range(n_methods))
+        ax_hm.set_xticklabels([METHOD_LABELS[m] for m in METHODS], rotation=35, ha="right", fontsize=9)
+        ax_hm.set_yticks(range(n_feat))
+        ax_hm.set_yticklabels(names, fontsize=9)
+        ax_hm.set_title("Übersicht (pro Feld)", fontsize=12, fontweight="bold")
+        for r in range(n_feat):
+            for c in range(n_methods):
+                val = mat[r, c]
+                txt = f"{val * scale:.3f}" if scale != 1 else f"{val:.3f}"
+                ax_hm.text(c, r, txt, ha="center", va="center", fontsize=7,
+                           color="white" if abs(val) > vmax * 0.55 else "#222")
+
+        fig.tight_layout()
+        fig.savefig(out_dir / "vergleich_gesamt.png", dpi=200, bbox_inches="tight", facecolor="white")
+        plt.close(fig)
+        return
+
+    scale = 1e3 if max(abs(mat.min()), abs(mat.max())) < 0.01 else 1
+    colors = [ROW_COLOR, COL_COLOR]
+
+    fig, (ax_bar, ax_hm) = plt.subplots(1, 2, figsize=(14, 5), facecolor="white")
+    fig.suptitle(
+        f"{game_name.upper()} — Ausgabewert-Vergleich",
+        fontsize=15, fontweight="bold", y=1.0,
+    )
+
+    x = np.arange(n_methods)
+    width = 0.36
+    bar_groups = []
+    for fi in range(n_feat):
+        offset = (fi - (n_feat - 1) / 2) * width
+        bars = ax_bar.bar(
+            x + offset, mat[fi], width,
+            label=labels[fi] if fi < len(labels) else names[fi],
+            color=colors[fi % len(colors)], edgecolor="white", linewidth=0.8,
+        )
+        bar_groups.append(bars)
+
+    ax_bar.axhline(0, color="#888", linewidth=0.9, zorder=0)
+    ax_bar.set_xticks(x)
+    ax_bar.set_xticklabels([METHOD_LABELS[m] for m in METHODS], fontsize=10)
+    ax_bar.set_title(bar_title, fontsize=12, fontweight="bold")
+    ax_bar.legend(loc="upper right", framealpha=0.95)
+    ax_bar.grid(axis="y", alpha=0.35, linestyle="--")
+    ax_bar.spines["top"].set_visible(False)
+    ax_bar.spines["right"].set_visible(False)
+    if scale != 1:
+        ax_bar.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v * scale:.2f}"))
+        ax_bar.set_ylabel("Mittlerer Ausgabewert (×10⁻³)")
+    else:
+        ax_bar.set_ylabel("Mittlerer Ausgabewert (über alle Zustände)")
+
+    for bars in bar_groups:
+        for bar in bars:
+            h = bar.get_height()
+            txt = f"{h * scale:.3f}" if scale != 1 else f"{h:.3f}"
+            ax_bar.annotate(
+                txt, xy=(bar.get_x() + bar.get_width() / 2, h),
+                xytext=(0, 3 if h >= 0 else -10), textcoords="offset points",
+                ha="center", va="bottom" if h >= 0 else "top", fontsize=7.5, color="#333",
+            )
+
+    vmax = max(abs(mat.min()), abs(mat.max()), 1e-9)
+    im_hm = ax_hm.imshow(mat, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
+    cbar = fig.colorbar(im_hm, ax=ax_hm, fraction=0.046, pad=0.04)
+    if scale != 1:
+        cbar.ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v * scale:.2f}"))
+        cbar.set_label("×10⁻³")
+    ax_hm.set_xticks(range(n_methods))
+    ax_hm.set_xticklabels([METHOD_LABELS[m] for m in METHODS], rotation=35, ha="right", fontsize=9)
+    ax_hm.set_yticks(range(n_feat))
+    ax_hm.set_yticklabels(names, fontsize=10)
+    ax_hm.set_title("Übersicht (Mittelwert)", fontsize=12, fontweight="bold")
+    for r in range(n_feat):
+        for c in range(n_methods):
+            val = mat[r, c]
+            txt = f"{val * scale:.3f}" if scale != 1 else f"{val:.3f}"
+            ax_hm.text(c, r, txt, ha="center", va="center", fontsize=8,
+                       color="white" if abs(val) > vmax * 0.55 else "#222")
+
+    fig.tight_layout()
+    fig.savefig(out_dir / "vergleich_gesamt.png", dpi=200, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
 def save_summary_plot(
     results: dict, states, out_dir: Path, game_name: str,
     feature_names: list[str] | None = None,
 ) -> None:
-    """
-    Speichert ``vergleich_gesamt.png``: Balkendiagramm + Heatmap (≤4 Features)
-    oder nur Heatmap bei mehr Features (z. B. wenn von anderen Skripten genutzt).
-
-    Gately wird in einem eigenen Panel gezeigt, da es v(N) verteilt und andere
-    Methoden marginale Beiträge liefern — sonst dominiert Gately die Skala.
-    """
-    names = feature_names or FEATURE_NAMES
-    out_dir.mkdir(parents=True, exist_ok=True)
-    mat = _mean_matrix(results, states, names)
-    n_feat, n_methods = mat.shape
-    compare_idx = [i for i, m in enumerate(METHODS) if m != "gately"]
-    gately_idx = METHODS.index("gately")
-
-    if n_feat > 4:
-        fig, ax = plt.subplots(figsize=(10, max(4, n_feat * 0.45 + 1)))
-        vmax = max(abs(mat.min()), abs(mat.max()), 1e-9)
-        im = ax.imshow(mat, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
-        fig.colorbar(im, ax=ax, fraction=0.046)
-        ax.set_xticks(range(n_methods))
-        ax.set_xticklabels([METHOD_LABELS[m] for m in METHODS], rotation=30, ha="right")
-        ax.set_yticks(range(n_feat))
-        ax.set_yticklabels(names)
-        ax.set_title(f"{game_name.upper()} — Mittelwert pro Feature")
-        for r in range(n_feat):
-            for c in range(n_methods):
-                ax.text(c, r, f"{mat[r, c]:.2f}", ha="center", va="center", fontsize=8)
-        fig.tight_layout()
-        fig.savefig(out_dir / "vergleich_gesamt.png", dpi=150, bbox_inches="tight")
-        plt.close(fig)
-        return
-
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4.5))
-
-    # Panel 1: Shapley, Banzhaf, Nucleolus, Tau, Utopia
-    ax = axes[0]
-    mat_compare = mat[:, compare_idx]
-    x = np.arange(len(compare_idx))
-    width = 0.35
-    for fi, fn in enumerate(names):
-        offset = (fi - 0.5) * width
-        ax.bar(x + offset, mat_compare[fi], width, label=fn)
-    ax.axhline(0, color="#999", linewidth=0.8)
-    ax.set_xticks(x)
-    ax.set_xticklabels([METHOD_LABELS[METHODS[i]] for i in compare_idx], rotation=30, ha="right")
-    ax.set_ylabel("Mittlerer Ausgabewert")
-    ax.set_title(f"{game_name.upper()} — Shapley-Methoden")
-    ax.legend()
-
-    # Panel 2: Gately (eigene Skala)
-    ax = axes[1]
-    x_g = np.arange(1)
-    for fi, fn in enumerate(names):
-        offset = (fi - 0.5) * width
-        ax.bar(x_g + offset, [mat[fi, gately_idx]], width, label=fn)
-    ax.axhline(0, color="#999", linewidth=0.8)
-    ax.set_xticks(x_g)
-    ax.set_xticklabels([METHOD_LABELS["gately"]])
-    ax.set_ylabel("Mittlerer Ausgabewert")
-    ax.set_title("Gately")
-    ax.legend()
-
-    # Panel 3: Heatmap aller Methoden
-    ax = axes[2]
-    vmax = max(abs(mat.min()), abs(mat.max()), 1e-9)
-    im = ax.imshow(mat, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
-    fig.colorbar(im, ax=ax, fraction=0.046)
-    ax.set_xticks(range(n_methods))
-    ax.set_xticklabels([METHOD_LABELS[m] for m in METHODS], rotation=30, ha="right")
-    ax.set_yticks(range(n_feat))
-    ax.set_yticklabels(names)
-    ax.set_title("Übersicht (Mittelwert)")
-    for r in range(n_feat):
-        for c in range(n_methods):
-            ax.text(c, r, f"{mat[r, c]:.2f}", ha="center", va="center", fontsize=9)
-
-    fig.tight_layout()
-    path = out_dir / "vergleich_gesamt.png"
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    """Speichert ``vergleich_gesamt.png`` (Balkendiagramm + Heatmap bei ≤4 Features)."""
+    save_vergleich_gesamt_plot(
+        results, states, out_dir, game_name,
+        feature_names=feature_names,
+    )
 
 
 def save_comparison_plots(
@@ -264,6 +336,32 @@ def save_comparison_plots(
 ) -> None:
     """Alias für ``save_summary_plot`` (ein Diagramm pro Spiel)."""
     save_summary_plot(results, states, out_dir, game_name, feature_names)
+
+
+def _load_or_run(name: str, cfg: dict, plot_only: bool) -> dict:
+    game_dir = OUT / name
+    pkl_path = game_dir / "results.pkl"
+    states_path = game_dir / "states.pkl"
+
+    if plot_only:
+        if not pkl_path.exists():
+            raise FileNotFoundError(f"Keine Ergebnisse: {pkl_path}")
+        with open(pkl_path, "rb") as f:
+            results = pickle.load(f)
+        if states_path.exists():
+            with open(states_path, "rb") as f:
+                states = pickle.load(f)
+        else:
+            states = np.array(list(results["shapley"][CHAR].keys()), dtype=float)
+        return {"results": results, "states": states}
+
+    data = run_game(name, cfg)
+    game_dir.mkdir(parents=True, exist_ok=True)
+    with open(pkl_path, "wb") as f:
+        pickle.dump(data["results"], f)
+    with open(states_path, "wb") as f:
+        pickle.dump(data["states"], f)
+    return data
 
 
 def run_game(name: str, cfg: dict) -> dict:
@@ -376,7 +474,12 @@ def main():
     Pro Spiel: ``results.pkl``, ``vergleich_gesamt.png``, ``AUSGABEWERTE.md``.
     Am Ende: zusammengefasster Bericht ``GRID_WORLDS_AUSGABEWERTE.md``.
     """
-    names = [a for a in sys.argv[1:] if a in CONFIGS] or list(CONFIGS)
+    parser = argparse.ArgumentParser(description="Grid-World Ausgabewert (gwa–gwd)")
+    parser.add_argument("games", nargs="*", help="gwa, gwb, gwc, gwd (Standard: alle)")
+    parser.add_argument("--plot-only", action="store_true", help="Nur Plots aus results.pkl")
+    args = parser.parse_args()
+    names = [g for g in args.games if g in CONFIGS] or list(CONFIGS)
+
     OUT.mkdir(parents=True, exist_ok=True)
     all_data = {}
 
@@ -385,17 +488,17 @@ def main():
         game_dir = OUT / name
         game_dir.mkdir(parents=True, exist_ok=True)
 
-        data = run_game(name, cfg)
+        data = _load_or_run(name, cfg, args.plot_only)
         all_data[name] = data
 
-        with open(game_dir / "results.pkl", "wb") as f:
-            pickle.dump(data["results"], f)
-
-        save_comparison_plots(data["results"], data["states"], game_dir, name)
+        save_comparison_plots(
+            data["results"], data["states"], game_dir, name,
+        )
         write_game_report(name, cfg, data)
         print(f"  -> {game_dir}")
 
-    write_summary(all_data)
+    if len(all_data) > 1:
+        write_summary(all_data)
     print(f"\nFertig: {OUT.resolve()}")
 
 

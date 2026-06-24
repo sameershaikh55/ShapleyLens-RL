@@ -7,11 +7,13 @@ werden erklärt. Optimale Policy per Value Iteration (kein Q-Learning-Training).
 
 Ergebnisse → ``Ausgabewert/frozen_lake/``
 
-    python ausgabewert_frozen_lake.py
+    python ausgabewert_frozen_lake.py              # berechnen + plotten
+    python ausgabewert_frozen_lake.py --plot-only  # nur Plots aus results.pkl
 """
 
 from __future__ import annotations
 
+import argparse
 import pickle
 import sys
 from pathlib import Path
@@ -27,10 +29,11 @@ from q_agent_1 import Agent
 from ausgabewert_grid_worlds import (
     CHAR,
     METHODS,
+    METHOD_LABELS,
     NUM_ROLLS,
     comparison_table,
     mean_comparison_table,
-    save_comparison_plots,
+    save_vergleich_gesamt_plot,
 )
 from shapley import Shapley
 from banzhaf import Banzhaf
@@ -44,6 +47,16 @@ OUT = ROOT / "Ausgabewert" / "frozen_lake"
 FEATURE_NAMES = ["row", "col"]  # faktorisierter Zustand: (Zeile, Spalte)
 GAMMA = 0.99                    # Diskontierungsfaktor der Value Iteration
 STATE_SAMPLES = 10_000          # Stichproben für die Zustandsverteilung p^π(s)
+FROZEN_BAR_LABELS = ["row (Zeile)", "col (Spalte)"]
+
+
+def save_frozen_lake_plots(results: dict, states, out_dir: Path) -> None:
+    save_vergleich_gesamt_plot(
+        results, states, out_dir, "frozen_lake",
+        feature_names=FEATURE_NAMES,
+        bar_labels=FROZEN_BAR_LABELS,
+        bar_title="Methodenvergleich — Mittelwert row vs. col",
+    )
 
 
 def run_frozen_lake() -> dict:
@@ -126,17 +139,43 @@ def write_report(data: dict) -> None:
         "Gym **FrozenLake-v1** (4×4, slippery). Features: **row**, **col**.\n\n",
         f"Value Iteration (γ={GAMMA}) | Charakteristik: **{CHAR}** | Rolls: {NUM_ROLLS:,}\n\n",
         f"**Erklärte Zustände:** {len(states)} (nicht-terminal)\n\n",
+        "Das Gitter ist symmetrisch → row ≈ col an den meisten Feldern. "
+        "Fast alle Zustände haben Ausgabewert 0; nur nahe dem Ziel **(3,2)** weichen die Werte ab. "
+        "Shapley, Banzhaf, Nucleolus und Gately stimmen überein; Tau und Utopia können leicht abweichen.\n\n",
         "## Gesamtvergleich (Mittel über alle Zustände)\n\n",
         mean_comparison_table(results, states, FEATURE_NAMES),
-        "\n\n## Detailtabelle (pro Zustand)\n\n",
+        "\n\n## Visualisierung\n\n",
+        "![Übersicht](vergleich_gesamt.png)\n\n",
+        "## Detailtabelle (pro Zustand)\n\n",
         comparison_table(results, states, FEATURE_NAMES),
         "\n",
     ]
-    (OUT / "AUSGABEWERTE.md").write_text(
-        "".join(body[:8]) + "\n\n![frozen_lake](vergleich_gesamt.png)\n\n" + "".join(body[8:]),
-        encoding="utf-8",
-    )
+    (OUT / "AUSGABEWERTE.md").write_text("".join(body), encoding="utf-8")
     print(f"Bericht: {OUT / 'AUSGABEWERTE.md'}")
+
+
+def _load_or_run(plot_only: bool) -> dict:
+    pkl_path = OUT / "results.pkl"
+    states_pkl = OUT / "states.pkl"
+
+    if plot_only:
+        if not pkl_path.exists():
+            raise FileNotFoundError(f"Keine Ergebnisse: {pkl_path} — zuerst ohne --plot-only ausführen.")
+        with open(pkl_path, "rb") as f:
+            results = pickle.load(f)
+        if states_pkl.exists():
+            with open(states_pkl, "rb") as f:
+                states = pickle.load(f)
+        else:
+            states = np.array(list(results["shapley"][CHAR].keys()), dtype=float)
+        return {"results": results, "states": states}
+
+    data = run_frozen_lake()
+    with open(pkl_path, "wb") as f:
+        pickle.dump(data["results"], f)
+    with open(states_pkl, "wb") as f:
+        pickle.dump(data["states"], f)
+    return data
 
 
 def main():
@@ -144,19 +183,21 @@ def main():
     Ausführung: Ordner anlegen → Ausgabewerte berechnen → speichern und visualisieren.
 
     Erzeugt:
-      - ``results.pkl``  — Rohdaten aller Methoden
-      - ``vergleich_gesamt.png`` — Balken- und Heatmap-Vergleich row vs. col
+      - ``results.pkl`` / ``states.pkl`` — Rohdaten
+      - ``vergleich_gesamt.png`` — Balkendiagramm + Heatmap (Mittelwert row vs. col)
       - ``AUSGABEWERTE.md`` — Textbericht mit Tabellen
     """
-    OUT.mkdir(parents=True, exist_ok=True)
-    data = run_frozen_lake()
-
-    with open(OUT / "results.pkl", "wb") as f:
-        pickle.dump(data["results"], f)
-
-    save_comparison_plots(
-        data["results"], data["states"], OUT, "frozen_lake", FEATURE_NAMES,
+    parser = argparse.ArgumentParser(description="Frozen Lake Ausgabewert")
+    parser.add_argument(
+        "--plot-only", action="store_true",
+        help="Nur Plots aus gespeicherten results.pkl erzeugen (ohne Neuberechnung)",
     )
+    args = parser.parse_args()
+
+    OUT.mkdir(parents=True, exist_ok=True)
+    data = _load_or_run(args.plot_only)
+
+    save_frozen_lake_plots(data["results"], data["states"], OUT)
     write_report(data)
     print(f"Fertig: {OUT.resolve()}")
 

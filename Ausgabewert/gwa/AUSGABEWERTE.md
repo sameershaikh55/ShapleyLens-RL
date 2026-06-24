@@ -25,3 +25,11 @@ Charakteristik: **local_sverl** | Train: 300,000 | Rolls: 5,000
 | `(1, 0)` | y | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 |
 | `(1, 1)` | x | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 |
 | `(1, 1)` | y | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 |
+
+
+
+Umgebung: 2×3 Grid, Ziel oben, 4 Zustände. Features: x, y.
+
+Befund: Alle Ausgabewerte für x und y sind exakt 0. Das Grid ist klein und symmetrisch; der optimale Pfad hängt nicht von der Trennung der Koordinaten ab. Die Ausgabewert-Analyse liefert hier keine Unterscheidungskraft – das ist kein Fehler, sondern korrekt.
+
+✓  Empfehlung: Beliebige Methode – Ergebnis identisch (0). Kein interpretierbarer Feature-Beitrag vorhanden.

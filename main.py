@@ -3,11 +3,11 @@ from explainer import Explainer
 if __name__ == "__main__":
     explainer = Explainer(
         explainers=["utopia-payoff", "banzhaf", "tau"],
-        games=["minesweeper"],
+        games=["gwa"],
         configs=[
-            ("utopia-payoff", "banzhaf", "minesweeper"),
-            ("utopia-payoff", "tau", "minesweeper"),
-            ("banzhaf", "tau", "minesweeper"),
+            ("utopia-payoff", "banzhaf", "gwa"),
+            ("utopia-payoff", "tau", "gwa"),
+            ("banzhaf", "tau", "gwa"),
         ],
         use_cache=False,
         normalize=True,
