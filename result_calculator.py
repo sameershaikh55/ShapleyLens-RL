@@ -385,15 +385,33 @@ class ResultCalculator:
         return f"Feature {idx}"
 
     def normalize_state(self, state: Any) -> State:
-        """Normalize state keys and convert numpy integer values to Python ints."""
+        """Normalize state keys and convert numpy scalar values to Python values."""
+        def clean_item(x):
+            if isinstance(x, np.integer):
+                return int(x)
+
+            if isinstance(x, np.floating):
+                value = float(x)
+                return int(value) if value.is_integer() else value
+
+            return x
+
         if isinstance(state, tuple):
-            return tuple(int(x) if isinstance(x, np.integer) else x for x in state)
+            return tuple(clean_item(x) for x in state)
+
         if isinstance(state, np.ndarray):
-            return tuple(int(x) if isinstance(x, np.integer) else x for x in state.tolist())
+            return tuple(clean_item(x) for x in state.tolist())
+
         if isinstance(state, list):
-            return tuple(int(x) if isinstance(x, np.integer) else x for x in state)
+            return tuple(clean_item(x) for x in state)
+
         if isinstance(state, np.integer):
             return (int(state),)
+
+        if isinstance(state, np.floating):
+            value = float(state)
+            return (int(value) if value.is_integer() else value,)
+
         return (state,)
 
     def format_state(self, state: State, compact: bool = False) -> str:

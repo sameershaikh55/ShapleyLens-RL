@@ -6,13 +6,13 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from battleship_gym import BattleshipEnv
-from explainer import Explainer
+from battleship.battleship_gym import BattleshipEnv
 from q_agent_2 import Agent
 from utils import find_states_battleship, train
 
 WIDTH = 78
 
+CHARACTERISTIC_MODE = "shapley_on_value"
 METHOD_ORDER = ("shapley", "banzhaf", "nucleolus", "utopia-payoff", "gately", "tau")
 METHOD_TITLES = {
     "shapley": "Shapley",
@@ -129,57 +129,89 @@ def collect_sample_states(env, agent, n_episodes=200, max_states=4):
     return np.array(seen[:max_states], dtype=np.float64) if seen else np.zeros((1, env.state_dim))
 
 
-if __name__ == "__main__":
-    assert BattleshipEnv.NUM_FEATURES == 40
-    assert BattleshipEnv.NUM_ROWS == 5
-    assert BattleshipEnv.NUM_COLS == 8
-
+def battleship_init():
     env = BattleshipEnv(seed=0, render_mode=None)
-    assert env.state_dim == BattleshipEnv.NUM_FEATURES
-
     agent = Agent(env.state_dim, env.num_actions, epsilon=1.0, gamma=0.95, alpha=0.1)
-    grid_label = f"Battleship ({env.rows}x{env.cols})"
+    states_to_explain = np.zeros((1, env.state_dim), dtype=np.float64)
+    return env, agent, states_to_explain
+
+
+def battleship_get_characteristic_modes():
+    return [CHARACTERISTIC_MODE]
+
+
+def battleship_run(
+    env=None,
+    agent=None,
+    states_to_explain=None,
+    methods=None,
+    normalized=True,
+):
+    """Train Battleship and compute explainer values via the adaptive pipeline."""
+    from explainer import Explainer
 
     print(f"Training ({env.rows}x{env.cols} = {env.state_dim} Merkmale)...\n")
-
-    # ------------------------------------------------- TRAIN
     train(agent, env, int(1e7))
 
-    # ------------------------------------------------- STATES TO EXPLAIN
     agent.epsilon = 0.0
     states_to_explain = collect_sample_states(env, agent, n_episodes=400, max_states=2)
     instances = find_states_battleship(agent, env, states_to_explain, max_steps=500_000)
     if not instances:
-        print("Keine Battleship-Instanzen gefunden — Explainer wird übersprungen.")
-        sys.exit(1)
+        raise RuntimeError("Keine Battleship-Instanzen gefunden")
+
     if len(instances) < len(states_to_explain):
         states_to_explain = np.stack(
             [np.array(k, dtype=np.float64) for k in instances.keys()], axis=0
         )
 
-    # ------------------------------------------------- GET AGENT'S POLICY & VALUE TABLE
     agent.get_policy()
     agent.get_value_table()
 
-    # ------------------------------------------------- EXPLAINER
+    if methods is None:
+        methods = list(METHOD_ORDER)
+
     explainer = Explainer(env, agent, states_to_explain, instances=instances)
     explainer.compute_state_dist(sample_size=1e6)
 
     adaptive_results = explainer.run_values(
-        methods=list(METHOD_ORDER),
-        normalized=True,
-        characteristic_mode="shapley_on_value",
+        methods=methods,
+        normalized=normalized,
+        characteristic_mode=CHARACTERISTIC_MODE,
     )
     meta = adaptive_results.pop("_meta", {})
-    method_errors = meta.get("method_errors", {})
 
-    char_mode = meta.get("characteristic_mode", "shapley_on_value")
-    results = {
-        m: {char_mode: v[char_mode]} if char_mode in v else v
-        for m, v in adaptive_results.items()
+    return {
+        "states_to_explain": states_to_explain,
+        "results": adaptive_results,
+        "method_errors": meta.get("method_errors", {}),
     }
 
-    print_explanation_report(results, {}, [char_mode], method_errors, grid_label=grid_label)
+
+if __name__ == "__main__":
+    assert BattleshipEnv.NUM_FEATURES == 40
+    assert BattleshipEnv.NUM_ROWS == 5
+    assert BattleshipEnv.NUM_COLS == 8
+
+    env, agent, _ = battleship_init()
+    assert env.state_dim == BattleshipEnv.NUM_FEATURES
+    grid_label = f"Battleship ({env.rows}x{env.cols})"
+
+    payload = battleship_run(
+        env=env,
+        agent=agent,
+        methods=list(METHOD_ORDER),
+        normalized=True,
+    )
+
+    print_explanation_report(
+        payload["results"],
+        {},
+        [CHARACTERISTIC_MODE],
+        payload["method_errors"],
+        grid_label=grid_label,
+    )
+
+    results = payload["results"]
 
     out_dir = os.path.dirname(os.path.abspath(__file__))
     for method, method_results in results.items():

@@ -8,7 +8,7 @@ except ImportError:
     import gymnasium as gym
 from gymnasium import spaces
 
-from battleship import Battleship
+from .battleship import Battleship
 
 
 class BattleshipEnv(gym.Env):

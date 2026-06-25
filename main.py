@@ -2,12 +2,12 @@ from explainer import Explainer
 
 if __name__ == "__main__":
     explainer = Explainer(
-        explainers=["utopia-payoff", "banzhaf", "tau"],
-        games=["minesweeper"],
+        explainers=["utopia-payoff", "banzhaf", "gately"],
+        games=["battleship"],
         configs=[
-            ("utopia-payoff", "banzhaf", "minesweeper"),
-            ("utopia-payoff", "tau", "minesweeper"),
-            ("banzhaf", "tau", "minesweeper"),
+            ("gately", "banzhaf", "battleship"),
+            ("utopia-payoff", "banzhaf", "battleship"),
+            ("utopia-payoff", "gately", "battleship"),
         ],
         use_cache=False,
         normalize=True,
