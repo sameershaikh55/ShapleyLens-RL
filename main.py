@@ -11,6 +11,7 @@ if __name__ == "__main__":
         ],
         use_cache=False,
         normalize=True,
+        scale_factor=2.0 
     )
 
     explainer.run()
