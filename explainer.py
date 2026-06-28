@@ -92,6 +92,7 @@ class Explainer:
         configs: list[ComparisonConfig],
         use_cache: bool = False,
         normalize: bool = False,
+        scale_factor=1.0,
         cache_root: str = "cache",
         output_root: str = "outputs",
     ):
@@ -101,6 +102,7 @@ class Explainer:
         self.comparisons = configs
         self.use_cache = use_cache
         self.normalize = normalize
+        self.scale_factor = scale_factor
         self.cache_root = Path(cache_root)
         self.output_root = Path(output_root)
 
@@ -117,11 +119,11 @@ class Explainer:
         if method == "shapley":
             return Shapley(states_to_explain)
         if method == "utopia-payoff":
-            return UtopiaPayoff(states_to_explain, normalized=self.normalize)
+            return UtopiaPayoff(states_to_explain, normalized=self.normalize, scale_factor=self.scale_factor)
         if method == "gately":
             return Gately(states_to_explain, normalized=self.normalize)
         if method == "banzhaf":
-            return Banzhaf(states_to_explain, normalized=self.normalize)
+            return Banzhaf(states_to_explain, normalized=self.normalize, scale_factor=self.scale_factor)
         if method == "nucleolus":
             return Nucleolus(states_to_explain)
         if method == "tau":
