@@ -25,6 +25,7 @@ def tic_tac_toe_run(env=None, agent=None, states_to_explain=None):
 
     # ------------------------------------------------- GET AGENT'S POLICY
     agent.get_policy(env.valid_dict)
+    agent.get_value_table(env.valid_dict)
 
     # -------------------------------------------------- GAME COMPUTATION
     game_compute = GameComputation(env, agent, states_to_explain, valid_dict=env.valid_dict)
