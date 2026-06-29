@@ -93,16 +93,28 @@ class Agent:
             for state, q_values in self.Q_table.items()
         }
 
+    def _aligned_state_arrays(self, state_dist):
+        """States present in policy, value table, and state distribution (same order)."""
+        has_v = hasattr(self, 'value_table') and self.value_table is not None
+        states_list = [
+            s for s in self.policy
+            if (not has_v or s in self.value_table) and s in state_dist
+        ]
+        all_states = np.array(states_list)
+        state_dist_full = np.array([state_dist[s] for s in states_list], dtype=float) + 1e-16
+        return all_states, state_dist_full
+
     def get_pi_C(self, C, state_dist, states_to_explain, valid_dict=None):
+        """
+        Calculates pi_C for given states.
+        """
         if len(C) == self.state_dim:
             return copy.deepcopy(self.policy)
 
-        policy_keys = list(self.policy.keys())
-        all_states = np.array(policy_keys)
+        all_states, state_dist_full = self._aligned_state_arrays(state_dist)
         mask_states = mask_state(states_to_explain, self.state_dim, C)
         mask_all_states = mask_state(all_states, self.state_dim, C)
-        state_dist_full = np.array([state_dist.get(k, 0.0) for k in policy_keys]) + 1e-16
-        policy_matrix = np.array([self.policy[k] for k in policy_keys])
+        policy_vals = np.array([self.policy[tuple(s)] for s in all_states])
 
         if valid_dict is None:
             pi_C = defaultdict(lambda: np.full(self.num_actions, 1 / self.num_actions))
@@ -111,7 +123,7 @@ class Agent:
             for m_state in np.unique(mask_states, axis=0):
                 ind = (mask_all_states == m_state).all(axis=1)
                 state_dist_cond = state_dist_full[ind] / state_dist_full[ind].sum()
-                temp_pi_C[tuple(m_state)] = (policy_matrix[ind] * state_dist_cond[:, None]).sum(axis=0)
+                temp_pi_C[tuple(m_state)] = (policy_vals[ind] * state_dist_cond[:, None]).sum(axis=0)
 
             for state, m_state in zip(states_to_explain, mask_states):
                 pi_C[tuple(state)] = temp_pi_C[tuple(m_state)]
@@ -126,7 +138,7 @@ class Agent:
         for m_state in np.unique(mask_states, axis=0):
             ind = (mask_all_states == m_state).all(axis=1)
             state_dist_cond = state_dist_full[ind] / state_dist_full[ind].sum()
-            temp_pi_C[tuple(m_state)] = (policy_matrix[ind] * state_dist_cond[:, None]).sum(axis=0)
+            temp_pi_C[tuple(m_state)] = (policy_vals[ind] * state_dist_cond[:, None]).sum(axis=0)
 
         for state, m_state in zip(states_to_explain, mask_states):
             actions = valid_dict[state.tobytes()]
@@ -136,16 +148,13 @@ class Agent:
         return pi_C
 
     def get_v_C(self, C, state_dist, states_to_explain):
-        policy_keys = list(self.policy.keys())
-        all_states = np.array(policy_keys)
+        all_states, state_dist_full = self._aligned_state_arrays(state_dist)
         mask_states = mask_state(states_to_explain, self.state_dim, C)
         mask_all_states = mask_state(all_states, self.state_dim, C)
 
-        state_dist_full = np.array([state_dist.get(k, 0.0) for k in policy_keys]) + 1e-16
-        values = np.array([self.value_table.get(k, 0.0) for k in policy_keys])
-
         v_C = {}
         temp_v_C = {}
+        values = np.array([self.value_table[tuple(s)] for s in all_states])
 
         for m_state in np.unique(mask_states, axis=0):
             ind = (mask_all_states == m_state).all(axis=1)
