@@ -207,9 +207,9 @@ class TauValue:
             #gamma = (grand_value - sum_vmin) / (sum_vmax - sum_vmin)
             #if sum_vmax == sum_vmin, we can set gamma to 0.5, since in this case vmin and vmax are the same and any gamma would yield the same tau.
             gamma = np.full_like(denominator, 0.5, dtype=float)
-            # sum((tau*vmax​+(1−tau)vmin​))=v(F) -> Forderung
-            # tau*sum(vmax) + (1 - tau)*sum(vmin) = grand_value
-            # tau*(sum_vmax - sum_vmin) + sum_vmin = grand_value
+            # sum((gamma*vmax​+(1−gamma)vmin​))=v(F) -> Forderung
+            # gamma*sum(vmax) + (1 - gamma)*sum(vmin) = grand_value
+            # gamma*(sum_vmax - sum_vmin) + sum_vmin = grand_value
             # gamma = (grand_value - sum_vmin) / (sum_vmax - sum_vmin)
             # np.divide handles the case where denominator is zero by using the 'where' parameter to avoid division by zero
             np.divide(
