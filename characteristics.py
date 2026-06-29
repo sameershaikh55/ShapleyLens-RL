@@ -53,12 +53,8 @@ class Characteristics:
         int_key = tuple(int(x) for x in state_key)
         if int_key in pi_C_dict:
             return pi_C_dict[int_key]
-        
-        # Debug: Print available keys for this coalition
-        print(f"Available keys in pi_C: {list(pi_C_dict.keys())[:5]}")  # Show first 5 keys
-        print(f"Looking for state_key: {state_key} (type: {type(state_key[0]) if state_key else 'empty'})")
-        
-        raise KeyError(f"State {state_key} not found in pi_C. Available states: {list(pi_C_dict.keys())}")
+
+        raise KeyError(f"State {state_key} not found in pi_C")
 
     def local_sverl_C_values(self, num_rolls, pi_Cs, multi_process=False, num_p=1):
         """
@@ -142,24 +138,37 @@ class Characteristics:
 
 # --------------------------------------------------------------------- Calculating a generic characteristic
 
-    def get_all_C_values(self, get_C_values, multi_process=False, num_p=1):
+    def get_all_C_values(self, get_C_values, multi_process=False, num_p=1, coalitions=None):
         """
-        Calculates all characteristic values for a given characteristic function.
-        Multi or single processing. 
-        """
-        
-        if multi_process: 
+        Calculates characteristic values for a given characteristic function.
 
-            characteristic_values = Manager().dict()
+        Args:
+            get_C_values:  Function that computes the characteristic value for one coalition.
+            multi_process: Whether to use multiprocessing.
+            num_p:         Number of parallel processes.
+            coalitions:    Optional iterable of coalition tuples to restrict computation to.
+                           None → all 2^n coalitions (original behaviour).
+        """
+        if coalitions is not None:
+            all_C = sorted(coalitions, key=len)
+        else:
             all_C = F_not_i(self.F)
 
-            for r in tqdm_label(range(int(np.ceil(len(all_C) / num_p))), '    Calculating Characteristics'):
+        if multi_process:
+            characteristic_values = Manager().dict()
 
-                processes = [Process(target=self.worker, args=(C, characteristic_values, get_C_values)) for C in all_C[r * num_p : (r + 1) * num_p]]
-
-                for p in processes:    
+            for r in tqdm_label(
+                range(int(np.ceil(len(all_C) / num_p))), "Calculating Characteristics"
+            ):
+                processes = [
+                    Process(
+                        target=self.worker,
+                        args=(C, characteristic_values, get_C_values),
+                    )
+                    for C in all_C[r * num_p : (r + 1) * num_p]
+                ]
+                for p in processes:
                     p.start()
-
                 for p in processes:
                     p.join()
 
@@ -227,12 +236,23 @@ class Characteristics:
         """
 
         # Env set to state being explained, either using saved instance or built into env class.
-        if self.reset_by_copy: self.env = copy.deepcopy(self.instances[tuple(state)])
-        else: state, _ = self.env.reset(state)
+        if self.reset_by_copy:
+            sk = self._normalize_state_tuple(state)
+            inst = self.instances.get(tuple(state))
+            if inst is None:
+                inst = self.instances.get(sk)
+            if inst is None:
+                int_key = tuple(int(x) for x in np.asarray(state).flatten())
+                inst = self.instances.get(int_key)
+            self.env = copy.deepcopy(inst)
+        else:
+            state, _ = self.env.reset(state)
 
         ret = 0
+        s_key = self._normalize_state_tuple(state)
 
-        if action is None: action = np.random.choice(self.env.num_actions, p=play_policy[tuple(state)])
+        if action is None:
+            action = np.random.choice(self.env.num_actions, p=play_policy[s_key])
 
         while True:
 
@@ -240,8 +260,10 @@ class Characteristics:
             state, reward, terminated, truncated, _ = self.env.step(action)
             ret += reward
 
-            if terminated or truncated: break
-            else: action = np.random.choice(self.env.num_actions, p=play_policy[tuple(state)])
+            if terminated or truncated:
+                break
+            s_key = self._normalize_state_tuple(state)
+            action = np.random.choice(self.env.num_actions, p=play_policy[s_key])
 
         return ret
     

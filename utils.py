@@ -43,6 +43,29 @@ def find_states_taxi(agent, env, states_to_explain):
 
     return instances
 
+
+def find_states_battleship(agent, env, states_to_explain, max_steps=1_000_000):
+    """
+    Speichert Environment-Kopien für erklärte Zustände (Spieler-Raster).
+    Nur für Battleship (verstecktes gegnerisches Raster pro Instanz).
+    """
+    instances = {}
+    state, info = env.reset()
+
+    for _ in tqdm_label(range(int(max_steps)), "Finding Battleship states"):
+        if (states_to_explain == state).all(axis=1).any():
+            if tuple(state) not in instances:
+                instances[tuple(state)] = copy.deepcopy(env)
+        if len(instances) >= len(states_to_explain):
+            break
+        action = agent.choose_action(state, info)
+        state, _, terminated, truncated, info = env.step(action)
+        if terminated or truncated:
+            state, info = env.reset()
+
+    return instances
+
+
 def find_states_minesweeper(agent, env, states_to_explain, num_steps):
     """
     Saves possible instances of environment for states to explain.
@@ -69,6 +92,16 @@ def find_states_minesweeper(agent, env, states_to_explain, num_steps):
                              np.array(list(value.values())) / sum(list(value.values())), 
                              len(np.array(list(value.keys())))] for state, value in instances.items()}
 
+def agent_state_key(agent, state):
+    """Normalize state to the same key used in agent Q_table / policy."""
+    if hasattr(agent, '_state_to_key'):
+        return agent._state_to_key(state)
+    if isinstance(state, np.ndarray):
+        return tuple(state)
+    if isinstance(state, tuple):
+        return state
+    return tuple(state)
+
 def get_state_dist(agent, env, sample_size):
     """
     Approximates the limiting state distribution.
@@ -83,9 +116,12 @@ def get_state_dist(agent, env, sample_size):
 
     for _ in tqdm_label(range(int(sample_size)), '    Approximating State Distribution'):
 
-        state_dist[tuple(state)] += 1
-        agent.Q_table[tuple(state)] # To keep number of states in state dist and Q table the same.
-        state, _, terminated, truncated, _ = env.step(np.random.choice(env.num_actions, p=agent.policy[tuple(state)]))
+        state_key = agent_state_key(agent, state)
+        state_dist[state_key] += 1
+        agent.Q_table[state_key] # To keep number of states in state dist and Q table the same.
+        state, _, terminated, truncated, _ = env.step(
+            np.random.choice(env.num_actions, p=agent.policy[state_key])
+        )
 
         if terminated or truncated: state, _ = env.reset()
 

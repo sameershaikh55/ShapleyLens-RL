@@ -36,7 +36,7 @@ class GameComputation:
             return self.agent.get_v_C(C, self.state_dist, self.states_to_explain, valid_dict=valid_dict)
         return self.agent.get_v_C(C, self.state_dist, self.states_to_explain)
     
-    def _agent_get_value_table(self, C, valid_dict=None):
+    def _agent_get_value_table(self, valid_dict=None):
         sig = inspect.signature(self.agent.get_value_table)
 
         if "valid_dict" in sig.parameters:
