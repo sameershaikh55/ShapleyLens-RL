@@ -77,6 +77,7 @@ class Agent:
 
     def _aligned_state_arrays(self, state_dist):
         """States present in policy, value table, and state distribution (same order)."""
+
         has_v = hasattr(self, 'value_table') and self.value_table is not None
         states_list = [
             s for s in self.policy
