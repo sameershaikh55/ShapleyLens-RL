@@ -119,10 +119,14 @@ class Explainer:
         if method == "shapley":
             return Shapley(states_to_explain)
         if method == "utopia-payoff":
+            return UtopiaPayoff(states_to_explain, normalized=self.normalize, scale_factor=1.0)
+        if method == "s_utopia-payoff":
             return UtopiaPayoff(states_to_explain, normalized=self.normalize, scale_factor=self.scale_factor)
         if method == "gately":
             return Gately(states_to_explain, normalized=self.normalize)
         if method == "banzhaf":
+            return Banzhaf(states_to_explain, normalized=self.normalize, scale_factor=1.0)
+        if method == "s_banzhaf":
             return Banzhaf(states_to_explain, normalized=self.normalize, scale_factor=self.scale_factor)
         if method == "nucleolus":
             return Nucleolus(states_to_explain)
