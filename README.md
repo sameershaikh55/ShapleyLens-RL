@@ -170,17 +170,17 @@ Nur **Standardbibliothek** wird darüber hinaus verwendet (`argparse`, `pickle`,
 
 ## Experimente ausführen
 
-Der empfohlene und zentrale Weg, um Experimente in diesem Projekt durchzuführen, ist die Nutzung der **`main.py`** (die auf der `Explainer`-Pipeline basiert)[cite: 3]. Hier können Sie alle gewünschten Spiele und Auswertungsmethoden an einem Ort konfigurieren und gesammelt ausführen[cite: 3].
+Der empfohlene und zentrale Weg, um Experimente in diesem Projekt durchzuführen, ist die Nutzung der **`main.py`** (die auf der `Explainer`-Pipeline basiert). Hier können Sie alle gewünschten Spiele und Auswertungsmethoden an einem Ort konfigurieren und gesammelt ausführen.
 
 ### Zentrale Steuerung über `main.py`
 
-Öffnen Sie die Datei `main.py` in einem Texteditor. Dort finden Sie die Initialisierung der `Explainer`-Klasse, die Sie nach Ihren Bedürfnissen anpassen können[cite: 3]:
+Öffnen Sie die Datei `main.py` in einem Texteditor. Dort finden Sie die Initialisierung der `Explainer`-Klasse, die Sie nach Ihren Bedürfnissen anpassen können:
 
-*   **`games`**: Eine Liste der Umgebungen, die ausgeführt werden sollen[cite: 3]. Gültige Werte sind z. B. `"gwa"`, `"gwb"`, `"gwc"`, `"gwd"`, `"minesweeper"`, `"taxi"`, `"tic_tac_toe"`, `"frozen_lake"`, `"battleship"`[cite: 3].
-*   **`explainers`**: Eine Liste der spieltheoretischen Methoden[cite: 3]. Gültige Werte sind: `"shapley"`, `"banzhaf"`, `"nucleolus"`, `"tau"`, `"utopia-payoff"`, `"gately"`[cite: 3].
-*   **`configs`**: Hier können Sie Tupel für direkte Vergleiche zwischen verschiedenen Explainern auf bestimmten Spielen definieren[cite: 3].
-*   **`use_cache`** (`True`/`False`): Legt fest, ob bereits berechnete Charakteristikfunktionen von der Festplatte geladen werden sollen (setzt einen vorherigen Durchlauf voraus) oder ob alles neu berechnet wird[cite: 3].
-*   **`normalize`** (`True`/`False`): Aktiviert die Normalisierung (wirkt sich nur auf `utopia-payoff`, `gately` und `banzhaf` aus)[cite: 3].
+*   **`games`**: Eine Liste der Umgebungen, die ausgeführt werden sollen. Gültige Werte sind z. B. `"gwa"`, `"gwb"`, `"gwc"`, `"gwd"`, `"minesweeper"`, `"taxi"`, `"tic_tac_toe"`, `"frozen_lake"`, `"battleship"`.
+*   **`explainers`**: Eine Liste der spieltheoretischen Methoden. Gültige Werte sind: `"shapley"`, `"banzhaf"`, `"nucleolus"`, `"tau"`, `"utopia-payoff"`, `"gately"`.
+*   **`configs`**: Hier können Sie Tupel für direkte Vergleiche zwischen verschiedenen Explainern auf bestimmten Spielen definieren.
+*   **`use_cache`** (`True`/`False`): Legt fest, ob bereits berechnete Charakteristikfunktionen von der Festplatte geladen werden sollen (setzt einen vorherigen Durchlauf voraus) oder ob alles neu berechnet wird.
+*   **`normalize`** (`True`/`False`): Aktiviert die Normalisierung (wirkt sich nur auf `utopia-payoff`, `gately` und `banzhaf` aus).
 
 Sobald Sie Ihre Konfiguration vorgenommen haben, führen Sie das Skript im Projekt-Root aus:
 
@@ -188,7 +188,7 @@ Sobald Sie Ihre Konfiguration vorgenommen haben, führen Sie das Skript im Proje
 python main.py
 ```
 
-Die Ergebnisse dieses zentralen Durchlaufs (inklusive JSON, CSV, Pickle-Dateien sowie generierter Heatmap-Plots und Vergleiche) werden automatisch im Ordner **`outputs/`** gespeichert[cite: 3].
+Die Ergebnisse dieses zentralen Durchlaufs (inklusive JSON, CSV, Pickle-Dateien sowie generierter Heatmap-Plots und Vergleiche) werden automatisch im Ordner **`outputs/`** gespeichert.
 
 ---
 
@@ -212,7 +212,7 @@ python run.py
 | Taxi | `cd taxi && python run.py` | ~1–2 min | Gymnasium `Taxi-v3`, exakte Lösung per Value Iteration |
 | FrozenLake | `cd frozen_lake && python run.py` | ~1–2 min | Gymnasium `FrozenLake-v1`, Value Iteration |
 | Tic-Tac-Toe | `cd tic_tac_toe && python run.py` | ~5–15 min | 512 Koalitionen (9 Features) |
-| Minesweeper | `cd minesweeper && python run.py` | ⚠️ sehr lang (ggf. Stunden) | 4×4-Feld, 16 Features → bis zu 32.768–65.536 Koalitionen (Nutzt `fast_local_sverl`)[cite: 3] |
+| Minesweeper | `cd minesweeper && python run.py` | ⚠️ sehr lang (ggf. Stunden) | 4×4-Feld, 16 Features → bis zu 32.768–65.536 Koalitionen (Nutzt `fast_local_sverl`) |
 
 \* *Richtwerte auf einem üblichen Laptop; abhängig von CPU-Kernen (`multi_process`/`num_p`-Einstellungen in den jeweiligen `run.py`).*
 
