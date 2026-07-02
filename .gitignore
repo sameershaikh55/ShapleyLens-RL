@@ -170,3 +170,5 @@ cython_debug/
 
 *.pkl
 graphify-out/cache/
+
+main.py

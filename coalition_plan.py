@@ -15,8 +15,8 @@ import numpy as np
 
 # ------------------------------------------------------------------ constants
 
-_SPARSE_METHODS: frozenset = frozenset(("gately", "utopia-payoff"))
-_EXPENSIVE_METHODS: frozenset = frozenset(("shapley", "banzhaf"))
+_SPARSE_METHODS: frozenset = frozenset(("gately", "utopia-payoff", "s_utopia-payoff"))
+_EXPENSIVE_METHODS: frozenset = frozenset(("shapley", "banzhaf", "s_banzhaf"))
 _SKIP_METHODS: frozenset = frozenset(("nucleolus", "tau"))
 
 # Rechenzeit-Toleranz (keine Feature-Schwelle — nur Zeitschranken)
@@ -64,13 +64,13 @@ def coalitions_for_method(method: str, F: np.ndarray) -> Set[Tuple]:
             result.add(tuple(f for f in F_int if f != i))
         return result
 
-    if method == "utopia-payoff":
+    if method in ("utopia-payoff", "s_utopia-payoff"):
         result = {(), F_tuple}
         for i in F_int:
             result.add(tuple(f for f in F_int if f != i))
         return result
 
-    # shapley, banzhaf, nucleolus, tau — all need the full power set
+    # shapley, banzhaf, s_banzhaf, nucleolus, tau — all need the full power set
     return coalitions_for_shapley_banzhaf_exact(F)
 
 

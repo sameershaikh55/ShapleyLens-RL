@@ -146,12 +146,13 @@ def battleship_run(
     states_to_explain=None,
     methods=None,
     normalized=True,
+    scale_factor=1.0,
 ):
     """Train Battleship and compute explainer values via the adaptive pipeline."""
     from explainer import Explainer
 
     print(f"Training ({env.rows}x{env.cols} = {env.state_dim} Merkmale)...\n")
-    train(agent, env, int(1e7))
+    train(agent, env, int(5e4))
 
     agent.epsilon = 0.0
     states_to_explain = collect_sample_states(env, agent, n_episodes=400, max_states=2)
@@ -170,8 +171,11 @@ def battleship_run(
     if methods is None:
         methods = list(METHOD_ORDER)
 
-    explainer = Explainer(env, agent, states_to_explain, instances=instances)
-    explainer.compute_state_dist(sample_size=1e6)
+    explainer = Explainer(
+        env, agent, states_to_explain, instances=instances,
+        normalize=normalized, scale_factor=scale_factor,
+    )
+    explainer.compute_state_dist(sample_size=5e4)
 
     adaptive_results = explainer.run_values(
         methods=methods,

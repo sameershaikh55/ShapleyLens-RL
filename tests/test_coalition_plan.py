@@ -78,6 +78,12 @@ class TestCoalitionsForMethod:
         # v(N), v(N\{i}), v() → 1 + n + 1 = n+2
         assert len(result) == n + 2
 
+    def test_s_utopia_same_coalitions_as_utopia(self):
+        F = np.arange(6)
+        assert coalitions_for_method("s_utopia-payoff", F) == coalitions_for_method(
+            "utopia-payoff", F
+        )
+
     def test_shapley_returns_full_power_set(self):
         n = 4
         F = np.arange(n)

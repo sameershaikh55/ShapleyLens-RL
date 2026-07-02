@@ -61,6 +61,9 @@ class ResultCalculator:
     def add_results(self, results: Results) -> None:
         """Add many nested results at once."""
         for value_name, characteristic_dict in results.items():
+            if not characteristic_dict:
+                self.results.setdefault(value_name, {})
+                continue
             for characteristic_name, values in characteristic_dict.items():
                 self.add_result(value_name, characteristic_name, values)
 

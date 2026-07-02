@@ -146,6 +146,8 @@ class Explainer:
             self.states_to_explain = states_to_explain
             self.valid_dict = valid_dict
             self.instances = instances
+            self.scale_factor = scale_factor
+            self.normalize = normalize
             self._legacy_mode = True
             return
 
@@ -392,7 +394,7 @@ class Explainer:
         char_values_dict = {characteristic_mode: sparse_cv}
 
         if num_mc_samples is None:
-            num_mc_samples = int(max(35_000, n))
+            num_mc_samples = int(max(3500, n))
         else:
             num_mc_samples = int(num_mc_samples)
 
@@ -424,8 +426,9 @@ class Explainer:
                         expl = Shapley(self.states_to_explain)
                         mc_result = expl.run_monte_carlo(char_fn_cached, num_mc_samples)
                         results[method] = {characteristic_mode: mc_result}
-                    elif method == "banzhaf":
-                        expl = Banzhaf(self.states_to_explain, normalized=normalized)
+                    elif method in ("banzhaf", "s_banzhaf"):
+                        sf = 1.0 if method == "banzhaf" else self.scale_factor
+                        expl = Banzhaf(self.states_to_explain, normalized=normalized, scale_factor=sf)
                         mc_result = expl.run_monte_carlo(
                             char_fn_cached, num_mc_samples, normalized=normalized
                         )
@@ -443,11 +446,21 @@ class Explainer:
                         elif method == "banzhaf":
                             expl = Banzhaf(self.states_to_explain, normalized=normalized)
                             results[method][char_name] = expl.run(char_values)
+                        elif method == "s_banzhaf":
+                            expl = Banzhaf(self.states_to_explain, normalized=normalized, scale_factor=self.scale_factor)
+                            results[method][char_name] = expl.run(char_values)
                         elif method == "nucleolus":
                             expl = Nucleolus(self.states_to_explain)
                             results[method][char_name] = expl.run(char_values)
                         elif method == "utopia-payoff":
                             expl = UtopiaPayoff(self.states_to_explain, normalized=normalized)
+                            results[method][char_name] = expl.run(char_values)
+                        elif method == "s_utopia-payoff":
+                            expl = UtopiaPayoff(
+                                self.states_to_explain,
+                                normalized=normalized,
+                                scale_factor=self.scale_factor,
+                            )
                             results[method][char_name] = expl.run(char_values)
                         elif method == "gately":
                             expl = Gately(self.states_to_explain, normalized=normalized)
@@ -482,11 +495,21 @@ class Explainer:
                 elif method == "banzhaf":
                     expl = Banzhaf(self.states_to_explain, normalized=normalized)
                     results[method][char_name] = expl.run(char_values)
+                elif method == "s_banzhaf":
+                    expl = Banzhaf(self.states_to_explain, normalized=normalized, scale_factor=self.scale_factor)
+                    results[method][char_name] = expl.run(char_values)
                 elif method == "nucleolus":
                     expl = Nucleolus(self.states_to_explain)
                     results[method][char_name] = expl.run(char_values)
                 elif method == "utopia-payoff":
                     expl = UtopiaPayoff(self.states_to_explain, normalized=normalized)
+                    results[method][char_name] = expl.run(char_values)
+                elif method == "s_utopia-payoff":
+                    expl = UtopiaPayoff(
+                        self.states_to_explain,
+                        normalized=normalized,
+                        scale_factor=self.scale_factor,
+                    )
                     results[method][char_name] = expl.run(char_values)
                 elif method == "gately":
                     expl = Gately(self.states_to_explain, normalized=normalized)
@@ -558,6 +581,7 @@ class Explainer:
                 states_to_explain=None,
                 methods=list(self.explainers),
                 normalized=self.normalize,
+                scale_factor=self.scale_factor,
             )
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             with open(cache_path, "wb") as f:
